@@ -29,6 +29,9 @@ export function updateDashboard(pointCount, bounds, positions) {
   // Beregn histogram
   const histogram = calculateZHistogram(positions, minZ, maxZ, 10);
   
+  // Beregn punktoppløsning (gjennomsnittlig avstand i flate områder)
+  const resolution = calculatePointResolution(positions);
+  
   // Opprett HTML for dashboard
   const html = `
     <h3>📊 Punktsky Statistikk</h3>
@@ -46,6 +49,11 @@ export function updateDashboard(pointCount, bounds, positions) {
     <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.2); margin-top: 8px; padding-top: 8px;">
       <span class="stat-label">Totalt antall punkter:</span>
       <span class="stat-value">${pointCount.toLocaleString('nb-NO')}</span>
+    </div>
+    
+    <div class="stat-row">
+      <span class="stat-label">Oppløsning:</span>
+      <span class="stat-value">${resolution.toFixed(3)} m</span>
     </div>
     
     <div class="stat-row">
@@ -74,7 +82,7 @@ export function updateDashboard(pointCount, bounds, positions) {
  * Oppdaterer metadata i dashboard
  */
 export function updateMetadata(metadata) {
-  currentMetadata.datum = metadata.datum || 'WGS84';
+  currentMetadata.datum = metadata.datum || 'ED50';
   currentMetadata.projection = metadata.projection || 'UTM 32N';
   
   console.log('Oppdaterer metadata i dashboard:', currentMetadata);
@@ -107,6 +115,127 @@ export function updateMetadata(metadata) {
 export function clearDashboard() {
   if (!dashboardElement) return;
   dashboardElement.innerHTML = '<p class="no-data">Last opp en punktsky for å se statistikk</p>';
+}
+
+/**
+ * Beregner punktoppløsning (gjennomsnittlig avstand mellom punkter i flate områder)
+ */
+function calculatePointResolution(positions) {
+  const numPoints = positions.length / 3;
+  
+  // For store punktskyer, sample kun en del av punktene
+  const maxSamples = Math.min(5000, numPoints);
+  const sampleInterval = Math.max(1, Math.floor(numPoints / maxSamples));
+  
+  // Del punktskyen i grid-celler for raskere søk
+  const gridSize = 50; // Antall celler i hver retning
+  const grid = new Map();
+  
+  // Finn min/max for grid
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = positions[i];
+    const y = positions[i + 1];
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+  
+  const rangeX = maxX - minX || 1;
+  const rangeY = maxY - minY || 1;
+  const cellSizeX = rangeX / gridSize;
+  const cellSizeY = rangeY / gridSize;
+  
+  // Populer grid
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = positions[i];
+    const y = positions[i + 1];
+    const z = positions[i + 2];
+    
+    const cellX = Math.floor((x - minX) / cellSizeX);
+    const cellY = Math.floor((y - minY) / cellSizeY);
+    const key = `${cellX},${cellY}`;
+    
+    if (!grid.has(key)) {
+      grid.set(key, []);
+    }
+    grid.get(key).push({ x, y, z, index: i });
+  }
+  
+  // Finn celler med lav Z-variasjon (flate områder)
+  const flatCells = [];
+  for (const [key, points] of grid.entries()) {
+    if (points.length < 10) continue; // Skip celler med for få punkter
+    
+    // Beregn Z standard deviation
+    const avgZ = points.reduce((sum, p) => sum + p.z, 0) / points.length;
+    const variance = points.reduce((sum, p) => sum + Math.pow(p.z - avgZ, 2), 0) / points.length;
+    const stdDev = Math.sqrt(variance);
+    
+    if (stdDev < 0.5) { // Flate områder (< 0.5m variasjon)
+      flatCells.push(points);
+    }
+  }
+  
+  if (flatCells.length === 0) {
+    // Fallback: bruk alle punkter hvis ingen flate områder
+    console.warn('Ingen flate områder funnet, bruker alle punkter');
+    flatCells.push(Array.from({ length: Math.min(1000, numPoints) }, (_, i) => ({
+      x: positions[i * 3 * sampleInterval],
+      y: positions[i * 3 * sampleInterval + 1],
+      z: positions[i * 3 * sampleInterval + 2]
+    })));
+  }
+  
+  // Sample punkter fra flate områder og beregn nærmeste nabo-avstand
+  const distances = [];
+  const maxDistanceSamples = 500;
+  
+  for (const cellPoints of flatCells.slice(0, 20)) { // Max 20 celler
+    const sampleSize = Math.min(25, cellPoints.length);
+    
+    for (let i = 0; i < sampleSize; i++) {
+      const point = cellPoints[Math.floor(Math.random() * cellPoints.length)];
+      let minDist = Infinity;
+      
+      // Finn nærmeste nabo
+      for (const other of cellPoints) {
+        if (point === other) continue;
+        
+        const dx = point.x - other.x;
+        const dy = point.y - other.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < minDist && dist > 0.001) {
+          minDist = dist;
+        }
+      }
+      
+      if (minDist < Infinity) {
+        distances.push(minDist);
+      }
+      
+      if (distances.length >= maxDistanceSamples) break;
+    }
+    
+    if (distances.length >= maxDistanceSamples) break;
+  }
+  
+  // Beregn gjennomsnitt
+  if (distances.length === 0) {
+    // Ekstra fallback: estimer fra area og antall punkter
+    const area = rangeX * rangeY;
+    const avgArea = area / numPoints;
+    return Math.sqrt(avgArea);
+  }
+  
+  const avgDistance = distances.reduce((sum, d) => sum + d, 0) / distances.length;
+  console.log(`Punktoppløsning beregnet fra ${distances.length} samples i ${flatCells.length} flate områder`);
+  
+  return avgDistance;
 }
 
 /**

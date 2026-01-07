@@ -10,17 +10,17 @@ let boxControllers = {};
 
 // Settings objekter
 export const settings = {
-  pointSize: 0.05,
+  pointSize: 0.2,
   pointColor: '#ffffff',
   backgroundColor: '#000000',
   useHeightColor: true,
-  showAxes: true
+  showAxes: false
 };
 
 // Rapport metadata
 export const reportSettings = {
   projectName: 'Mitt Prosjekt',
-  datum: 'WGS84',
+  datum: 'ED50',
   projection: 'UTM 32N',
   description: 'Punktsky data',
   generateReport: async () => await handleGenerateReport()

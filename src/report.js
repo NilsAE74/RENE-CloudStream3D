@@ -304,15 +304,15 @@ function createLegend(minZ, maxZ) {
   const barWidth = canvas.width - 30;
   const barHeight = 20;
   
-  // Tegn farge-gradient (matcher HSL-skalaen brukt i parser.js: blå -> cyan -> grønn -> gul -> rød)
+  // Tegn farge-gradient (matcher den mørkere skalaen brukt i PDF-eksporten)
   const gradient = ctx.createLinearGradient(barX, 0, barX + barWidth, 0);
   
-  // HSL: 0.6 (blå) til 0.0 (rød), saturation 1.0, lightness 0.5
-  gradient.addColorStop(0, 'hsl(216, 100%, 50%)');    // Blå (lav Z)
-  gradient.addColorStop(0.25, 'hsl(180, 100%, 50%)'); // Cyan
-  gradient.addColorStop(0.5, 'hsl(120, 100%, 50%)');  // Grønn
-  gradient.addColorStop(0.75, 'hsl(60, 100%, 50%)');  // Gul
-  gradient.addColorStop(1, 'hsl(0, 100%, 50%)');      // Rød (høy Z)
+  // HSL: 0.6 (blå) til 0.0 (rød), saturation 1.0, lightness 0.35 (mørkere for bedre synlighet)
+  gradient.addColorStop(0, 'hsl(216, 100%, 35%)');    // Mørk blå (lav Z)
+  gradient.addColorStop(0.25, 'hsl(180, 100%, 35%)'); // Mørk cyan
+  gradient.addColorStop(0.5, 'hsl(120, 100%, 35%)');  // Mørk grønn
+  gradient.addColorStop(0.75, 'hsl(60, 100%, 45%)');  // Mørk gul (litt lysere for synlighet)
+  gradient.addColorStop(1, 'hsl(0, 100%, 40%)');      // Mørk rød (høy Z)
   
   ctx.fillStyle = gradient;
   ctx.fillRect(barX, barY, barWidth, barHeight);
@@ -339,7 +339,7 @@ function createLegend(minZ, maxZ) {
   ctx.fillStyle = '#333';
   ctx.font = 'bold 10px Arial';
   ctx.textAlign = 'right';
-  ctx.fillText('Høyde (Z)', canvas.width - 10, barY + barHeight / 2 + 4);
+  ctx.fillText('Dybde (Z)', canvas.width - 10, barY + barHeight / 2 + 4);
   
   return canvas.toDataURL('image/png');
 }

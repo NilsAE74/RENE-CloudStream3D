@@ -260,22 +260,70 @@ export async function generateMapImage(resolution = 2048) {
       scene.background = new THREE.Color(0xffffff); // Hvit bakgrunn
       if (axesHelper) axesHelper.visible = false;
 
-      // VISIBILITY BOOST: Øk punktstørrelse betydelig (3x) for tydeligere punkter
-      pointCloud.material.size = originalPointSize * 3;
+      // VISIBILITY BOOST: Øk punktstørrelse betydelig for tydeligere punkter
+      pointCloud.material.size = originalPointSize * 4;
       
       // Full opasitet for kraftige, solide farger
       pointCloud.material.opacity = 1.0;
       pointCloud.material.transparent = false;
       pointCloud.material.needsUpdate = true;
 
-      // Forsterk fargene for sterkere visning mot hvit bakgrunn
-      const originalColors = pointCloud.geometry.attributes.color.array.slice(); // Kopier
+      // Lagre originale farger
+      const originalColors = pointCloud.geometry.attributes.color.array.slice();
       const colors = pointCloud.geometry.attributes.color.array;
-      const colorBoost = 2.0; // 100% sterkere farger for maksimal synlighet
       
-      for (let i = 0; i < colors.length; i++) {
-        const boosted = colors[i] * colorBoost;
-        colors[i] = Math.min(1.0, boosted);
+      // FARGE-FIX: Konverter til mørkere, mer mettede farger for PDF
+      // Problemet er at multiplisering gjør farger LYSERE, ikke mer mettede
+      // Løsning: Konverter RGB -> HSL, senk lightness, øk saturation, konverter tilbake
+      for (let i = 0; i < colors.length; i += 3) {
+        const r = colors[i];
+        const g = colors[i + 1];
+        const b = colors[i + 2];
+        
+        // RGB til HSL konvertering
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+        
+        if (max === min) {
+          h = s = 0;
+        } else {
+          const d = max - min;
+          s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+          switch (max) {
+            case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+            case g: h = ((b - r) / d + 2) / 6; break;
+            case b: h = ((r - g) / d + 4) / 6; break;
+          }
+        }
+        
+        // Juster for sterkere farger: lavere lightness, full saturation
+        s = 1.0;           // Maksimal metning
+        l = 0.35;          // Mørkere farger (0.35 i stedet for 0.5)
+        
+        // HSL til RGB konvertering
+        let newR, newG, newB;
+        if (s === 0) {
+          newR = newG = newB = l;
+        } else {
+          const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+          };
+          const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+          const p = 2 * l - q;
+          newR = hue2rgb(p, q, h + 1/3);
+          newG = hue2rgb(p, q, h);
+          newB = hue2rgb(p, q, h - 1/3);
+        }
+        
+        colors[i] = newR;
+        colors[i + 1] = newG;
+        colors[i + 2] = newB;
       }
       pointCloud.geometry.attributes.color.needsUpdate = true;
 
