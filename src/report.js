@@ -105,7 +105,7 @@ async function createMapPage(pdf, reportData) {
   // Metadata-tabell
   yPos = drawSectionHeader(pdf, 'Metadata', yPos);
   const metaData = [
-    ['Koordinatsystem', reportData.datum || 'WGS84'],
+    ['Koordinatsystem', reportData.datum || 'ED 50'],
     ['Projeksjon', reportData.projection || 'UTM 32N'],
     ['Beskrivelse', reportData.description || '-']
   ];
@@ -133,6 +133,15 @@ async function createMapPage(pdf, reportData) {
       
       // Akser med koordinater
       drawAxisLabels(pdf, imgX, imgY, imgSize, mapResult.bounds, mapResult.gridCellSize, mapResult.gridCenter);
+      
+      // Legg til fargeforklaring (legend) i øvre høyre hjørne
+      const legendWidth = 50;  // mm
+      const legendHeight = 12; // mm
+      const legendX = imgX + imgSize - legendWidth - 3;
+      const legendY = imgY + 3;
+      
+      const legendDataUrl = createLegend(mapResult.minZ, mapResult.maxZ);
+      pdf.addImage(legendDataUrl, 'PNG', legendX, legendY, legendWidth, legendHeight);
       
       // Skala-info (plasseres under X-akse label)
       yPos = imgY + imgSize + 18;
@@ -171,6 +180,7 @@ async function createMapPage(pdf, reportData) {
  */
 function drawAxisLabels(pdf, imgX, imgY, imgSize, bounds, gridCellSize, gridCenter) {
   pdf.setFontSize(6);
+  pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(50, 50, 50);
   
   const xRange = bounds.maxX - bounds.minX;
@@ -192,7 +202,7 @@ function drawAxisLabels(pdf, imgX, imgY, imgSize, bounds, gridCellSize, gridCent
   
   // Y-akse (venstre)
   pdf.setFontSize(6);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont('helvetica', 'bold');
   const firstTickY = gridCenter.y + Math.ceil((bounds.minY - gridCenter.y) / tickInterval) * tickInterval;
   for (let yVal = firstTickY; yVal <= bounds.maxY; yVal += tickInterval) {
     const frac = (yVal - bounds.minY) / yRange;
@@ -264,4 +274,72 @@ function addFooter(pdf) {
     pdf.setTextColor(150, 150, 150);
     pdf.text(`Side ${i} av ${pages}`, PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
   }
+}
+
+/**
+ * Oppretter fargeforklaring (legend) for Z-verdier
+ * Returnerer en DataURL med gradient og labels
+ */
+function createLegend(minZ, maxZ) {
+  // Opprett midlertidig canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = 300;
+  canvas.height = 60;
+  const ctx = canvas.getContext('2d');
+  
+  // Hvit bakgrunn med avrundede hjørner
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, canvas.width, canvas.height, 6);
+  ctx.fill();
+  
+  // Ramme
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  
+  // Gradient bar dimensjoner
+  const barX = 15;
+  const barY = 10;
+  const barWidth = canvas.width - 30;
+  const barHeight = 20;
+  
+  // Tegn farge-gradient (matcher HSL-skalaen brukt i parser.js: blå -> cyan -> grønn -> gul -> rød)
+  const gradient = ctx.createLinearGradient(barX, 0, barX + barWidth, 0);
+  
+  // HSL: 0.6 (blå) til 0.0 (rød), saturation 1.0, lightness 0.5
+  gradient.addColorStop(0, 'hsl(216, 100%, 50%)');    // Blå (lav Z)
+  gradient.addColorStop(0.25, 'hsl(180, 100%, 50%)'); // Cyan
+  gradient.addColorStop(0.5, 'hsl(120, 100%, 50%)');  // Grønn
+  gradient.addColorStop(0.75, 'hsl(60, 100%, 50%)');  // Gul
+  gradient.addColorStop(1, 'hsl(0, 100%, 50%)');      // Rød (høy Z)
+  
+  ctx.fillStyle = gradient;
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+  
+  // Ramme rundt gradient
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(barX, barY, barWidth, barHeight);
+  
+  // Labels
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 11px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${minZ.toFixed(1)} m`, barX, barY + barHeight + 14);
+  
+  ctx.textAlign = 'center';
+  const midZ = (minZ + maxZ) / 2;
+  ctx.fillText(`${midZ.toFixed(1)} m`, barX + barWidth / 2, barY + barHeight + 14);
+  
+  ctx.textAlign = 'right';
+  ctx.fillText(`${maxZ.toFixed(1)} m`, barX + barWidth, barY + barHeight + 14);
+  
+  // Tittel
+  ctx.fillStyle = '#333';
+  ctx.font = 'bold 10px Arial';
+  ctx.textAlign = 'right';
+  ctx.fillText('Høyde (Z)', canvas.width - 10, barY + barHeight / 2 + 4);
+  
+  return canvas.toDataURL('image/png');
 }

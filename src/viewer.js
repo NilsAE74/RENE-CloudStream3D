@@ -250,23 +250,30 @@ export async function generateMapImage(resolution = 2048) {
         width: renderer.domElement.width,
         height: renderer.domElement.height
       };
+      
+      // Lagre original material-innstillinger
       const originalPointSize = pointCloud.material.size;
+      const originalOpacity = pointCloud.material.opacity;
+      const originalTransparent = pointCloud.material.transparent;
 
-      // === 2. Sett opp kart-modus ===
+      // === 2. Sett opp kart-modus for PDF ===
       scene.background = new THREE.Color(0xffffff); // Hvit bakgrunn
       if (axesHelper) axesHelper.visible = false;
 
-      // Øk punktstørrelse for bedre synlighet
-      pointCloud.material.size = originalPointSize * 6;
+      // VISIBILITY BOOST: Øk punktstørrelse betydelig (3x) for tydeligere punkter
+      pointCloud.material.size = originalPointSize * 3;
+      
+      // Full opasitet for kraftige, solide farger
+      pointCloud.material.opacity = 1.0;
+      pointCloud.material.transparent = false;
       pointCloud.material.needsUpdate = true;
 
       // Forsterk fargene for sterkere visning mot hvit bakgrunn
       const originalColors = pointCloud.geometry.attributes.color.array.slice(); // Kopier
       const colors = pointCloud.geometry.attributes.color.array;
-      const colorBoost = 1.8; // 80% sterkere farger
+      const colorBoost = 2.0; // 100% sterkere farger for maksimal synlighet
       
       for (let i = 0; i < colors.length; i++) {
-        // Boost fargen, men behold metning ved å ikke bare multiplisere
         const boosted = colors[i] * colorBoost;
         colors[i] = Math.min(1.0, boosted);
       }
@@ -332,8 +339,10 @@ export async function generateMapImage(resolution = 2048) {
       scene.background = originalBackground;
       if (axesHelper) axesHelper.visible = originalAxesVisible;
       
-      // Gjenopprett original punktstørrelse
+      // Gjenopprett original material-innstillinger
       pointCloud.material.size = originalPointSize;
+      pointCloud.material.opacity = originalOpacity;
+      pointCloud.material.transparent = originalTransparent;
       pointCloud.material.needsUpdate = true;
       
       // Gjenopprett originale farger
@@ -357,16 +366,23 @@ export async function generateMapImage(resolution = 2048) {
         minY: (center.y - frustumSize) + coordinateOffset.y,
         maxY: (center.y + frustumSize) + coordinateOffset.y
       };
+      
+      // Beregn Z-verdier i originale koordinater for legend
+      const minZ = boundingBox.min.z + coordinateOffset.z;
+      const maxZ = boundingBox.max.z + coordinateOffset.z;
 
       console.log('Kart-bilde generert med sterke farger');
       console.log(`Rutenett: ${gridCellSize}m per rute`);
+      console.log(`Z-range: ${minZ.toFixed(2)} til ${maxZ.toFixed(2)} m`);
       
       resolve({
         imageDataUrl,
         bounds: visibleBounds,
         gridCenter: gridCenterOriginal,
         size: { x: size.x, y: size.y, z: size.z },
-        gridCellSize
+        gridCellSize,
+        minZ,
+        maxZ
       });
 
     } catch (error) {
