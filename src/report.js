@@ -134,12 +134,13 @@ async function createMapPage(pdf, reportData) {
       // Akser med koordinater
       drawAxisLabels(pdf, imgX, imgY, imgSize, mapResult.bounds, mapResult.gridCellSize, mapResult.gridCenter);
       
-      yPos = imgY + imgSize + 15;
-      
-      // Skala-info
+      // Skala-info (plasseres under X-akse label)
+      yPos = imgY + imgSize + 18;
       pdf.setFontSize(8);
       pdf.setTextColor(128, 128, 128);
-      pdf.text(`Utstrekning: ${mapResult.size.x.toFixed(1)} × ${mapResult.size.y.toFixed(1)} m | Rutenett: ${mapResult.gridCellSize} m`, PAGE_WIDTH / 2, yPos + 50, { align: 'center' });
+      pdf.text(`Utstrekning: ${mapResult.size.x.toFixed(1)} × ${mapResult.size.y.toFixed(1)} m | Rutenett: ${mapResult.gridCellSize} m`, PAGE_WIDTH / 2, yPos, { align: 'center' });
+      
+      yPos += 8;
     }
   } catch (error) {
     console.error('Feil ved kart-generering:', error);
