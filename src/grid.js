@@ -5,6 +5,14 @@ import * as THREE from 'three';
  * Selv om 3D-modellen er sentrert rundt 0,0,0, viser dette gridet de faktiske koordinatene
  */
 
+/**
+ * Formaterer tall med mellomrom som tusenskiller
+ */
+function formatWithSpaces(num) {
+  const rounded = Math.round(num);
+  return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
 let gridGroup = null;
 let gridLines = null;
 let gridLabels = [];
@@ -40,7 +48,7 @@ export function createSurveyGrid(boundingBox, centerOffset, scene) {
   const gridZ = boundingBox.min.z - 0.1;
   
   // Beregn grid-utstrekning
-  const padding = gridInterval * 2;
+  const padding = gridInterval * 0.5;
   const minX = Math.floor((boundingBox.min.x - padding) / gridInterval) * gridInterval;
   const maxX = Math.ceil((boundingBox.max.x + padding) / gridInterval) * gridInterval;
   const minY = Math.floor((boundingBox.min.y - padding) / gridInterval) * gridInterval;
@@ -109,32 +117,32 @@ function calculateGridInterval(dimension) {
 function createGridLabels(minX, maxX, minY, maxY, gridZ, interval, centerOffset) {
   gridLabels = [];
   
-  const labelSize = interval * 0.1; // Tilpass tekststørrelse til grid-størrelse
-  const labelOffset = interval * 0.3; // Avstand fra grid-kant
+  const labelSize = interval * 0.2; // Tilpass tekststørrelse til grid-størrelse
+  const labelOffset = interval * 0.2; // Avstand fra grid-kant
   
   // Labels langs X-aksen (Øst-koordinater)
-  for (let x = minX; x <= maxX; x += interval) {
-    // Original koordinat
-    const originalX = x + centerOffset.x;
-    
-    // Label nederst
-    const label = createTextSprite(`Ø: ${Math.round(originalX)}`, labelSize);
-    label.position.set(x, minY - labelOffset, gridZ);
-    gridGroup.add(label);
-    gridLabels.push(label);
-  }
+for (let x = minX; x <= maxX; x += interval) {
+  // Original koordinat
+  const originalX = x + centerOffset.x;
   
-  // Labels langs Y-aksen (Nord-koordinater)
-  for (let y = minY; y <= maxY; y += interval) {
-    // Original koordinat
-    const originalY = y + centerOffset.y;
-    
-    // Label til venstre
-    const label = createTextSprite(`N: ${Math.round(originalY)}`, labelSize);
-    label.position.set(minX - labelOffset, y, gridZ);
-    gridGroup.add(label);
-    gridLabels.push(label);
-  }
+  // Label nederst
+  const label = createTextSprite(`E: ${formatWithSpaces(originalX)}`, labelSize);
+  label.position.set(x, minY - labelOffset, gridZ);
+  gridGroup.add(label);
+  gridLabels.push(label);
+}
+
+// Labels langs Y-aksen (Nord-koordinater)
+for (let y = minY; y <= maxY; y += interval) {
+  // Original koordinat
+  const originalY = y + centerOffset.y;
+  
+  // Label til venstre
+  const label = createTextSprite(`N: ${formatWithSpaces(originalY)}`, labelSize);
+  label.position.set(minX - labelOffset, y, gridZ);
+  gridGroup.add(label);
+  gridLabels.push(label);
+}
   
   console.log(`${gridLabels.length} grid-labels opprettet`);
 }
@@ -151,11 +159,11 @@ function createTextSprite(text, size) {
   canvas.height = 128;
   
   // Tekst-styling
-  context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  context.fillStyle = 'rgba(0, 0, 0, 0.9)';
   context.fillRect(0, 0, canvas.width, canvas.height);
   
-  context.font = 'bold 48px Arial';
-  context.fillStyle = 'rgba(0, 0, 0, 0.9)';
+  context.font = 'bold 72px Arial';
+  context.fillStyle = 'rgba(255, 255, 255, 0.9)';
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.fillText(text, canvas.width / 2, canvas.height / 2);

@@ -16,7 +16,8 @@ export const settings = {
   backgroundColor: '#000000',
   useHeightColor: true,
   showAxes: false,
-  showGrid: false
+  showGrid: false,
+  showLegend: true
 };
 
 // Rapport metadata
@@ -70,6 +71,9 @@ export function initGUI() {
   });
   sceneFolder.add(settings, 'showGrid').name('Vis Koordinat-grid').onChange((value) => {
     grid.setGridVisible(value);
+  });
+  sceneFolder.add(settings, 'showLegend').name('Vis Høyde-legend').onChange((value) => {
+    setLegendVisible(value);
   });
   sceneFolder.open();
 
@@ -283,6 +287,9 @@ function handleInvertZ() {
     maxZ: originalMaxZ   // Allerede konvertert til original i viewer.js
   }, originalPositions);
   
+  // Oppdater legend med nye Z-verdier
+  updateLegend(originalMinZ, originalMaxZ);
+  
   stats.showDashboardMessage('✓ Z-akse invertert!', 'info');
   
   // Oppdater selection box hvis den er aktiv
@@ -394,4 +401,37 @@ function getRendererForPDF() {
  */
 export function getGUI() {
   return gui;
+}
+
+/**
+ * Oppdaterer høyde-legend med Z-verdier
+ */
+export function updateLegend(minZ, maxZ) {
+  const legend = document.getElementById('height-legend');
+  if (!legend) return;
+
+  const maxLabel = legend.querySelector('.legend-max');
+  const midLabel = legend.querySelector('.legend-mid');
+  const minLabel = legend.querySelector('.legend-min');
+
+  if (maxLabel && midLabel && minLabel) {
+    maxLabel.textContent = maxZ.toFixed(2);
+    midLabel.textContent = ((minZ + maxZ) / 2).toFixed(2);
+    minLabel.textContent = minZ.toFixed(2);
+  }
+
+  // Vis legenden hvis den er aktivert
+  if (settings.showLegend) {
+    legend.style.display = 'block';
+  }
+}
+
+/**
+ * Viser/skjuler legend
+ */
+export function setLegendVisible(visible) {
+  const legend = document.getElementById('height-legend');
+  if (legend) {
+    legend.style.display = visible ? 'block' : 'none';
+  }
 }

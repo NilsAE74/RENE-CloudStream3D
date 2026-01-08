@@ -93,6 +93,9 @@ function loadFile(file) {
       // Oppdater dashboard med statistikk (bruker ORIGINALE posisjoner for histogram)
       stats.updateDashboard(count, bounds, positions, file.name);
       
+      // Oppdater legend med Z-verdier
+      ui.updateLegend(bounds.minZ, bounds.maxZ);
+      
       // Lagre statistikk for rapport
       ui.updateStats({
         pointCount: count,
