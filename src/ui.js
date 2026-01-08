@@ -322,21 +322,10 @@ function handleInvertZ() {
 function setupReportGUI() {
   const reportFolder = gui.addFolder('📄 Rapport & Lokasjon');
   
-  reportFolder.add(reportSettings, 'projectName').name('Prosjektnavn').onChange((value) => {
-    stats.updateMetadata(reportSettings);
-  });
-  
-  reportFolder.add(reportSettings, 'datum').name('Datum').onChange((value) => {
-    stats.updateMetadata(reportSettings);
-  });
-  
-  reportFolder.add(reportSettings, 'projection').name('Projeksjon').onChange((value) => {
-    stats.updateMetadata(reportSettings);
-  });
-  
-  reportFolder.add(reportSettings, 'description').name('Beskrivelse').onChange((value) => {
-    stats.updateMetadata(reportSettings);
-  });
+  reportFolder.add(reportSettings, 'projectName').name('Prosjektnavn');
+  reportFolder.add(reportSettings, 'datum').name('Datum');
+  reportFolder.add(reportSettings, 'projection').name('Projeksjon');
+  reportFolder.add(reportSettings, 'description').name('Beskrivelse');
   
   reportFolder.add(reportSettings, 'generateReport').name('📥 Generer PDF-rapport');
   reportFolder.close();

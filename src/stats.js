@@ -50,16 +50,6 @@ export function updateDashboard(pointCount, bounds, positions, fileName = '') {
     ` : ''}
     
     <div class="stat-row">
-      <span class="stat-label">Datum:</span>
-      <span class="stat-value">${currentMetadata.datum}</span>
-    </div>
-    
-    <div class="stat-row">
-      <span class="stat-label">Projeksjon:</span>
-      <span class="stat-value">${currentMetadata.projection}</span>
-    </div>
-    
-    <div class="stat-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0px;">
       <span class="stat-label">Totalt antall punkter:</span>
       <span class="stat-value">${pointCount.toLocaleString('nb-NO')}</span>
     </div>
