@@ -8,6 +8,7 @@ import * as parser from './src/parser.js';
 import * as ui from './src/ui.js';
 import * as selection from './src/selection.js';
 import * as stats from './src/stats.js';
+import * as grid from './src/grid.js';
 
 // Initialiser Three.js viewer
 const { scene, camera, controls } = viewer.initViewer();
@@ -120,7 +121,14 @@ fileInput.addEventListener('change', async (event) => {
         geometry.boundingBox,
         geometry.boundingSphere
       );
-      
+
+      // Respekter GUI-innstillingene for aksekors
+      viewer.setAxesVisible(ui.settings.showAxes);
+
+      // Opprett koordinatgrid med originale koordinater (men hold det skjult som standard)
+      grid.createSurveyGrid(geometry.boundingBox, offset, viewer.getScene());
+      grid.setGridVisible(ui.settings.showGrid);
+
       // Åpne punkt-innstillinger folder
       ui.openPointFolder();
       

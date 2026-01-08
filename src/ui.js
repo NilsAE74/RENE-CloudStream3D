@@ -3,6 +3,7 @@ import * as viewer from './viewer.js';
 import * as selection from './selection.js';
 import * as stats from './stats.js';
 import * as report from './report.js';
+import * as grid from './grid.js';
 
 let gui;
 let pointFolder, sceneFolder, boxFolder;
@@ -14,7 +15,8 @@ export const settings = {
   pointColor: '#ffffff',
   backgroundColor: '#000000',
   useHeightColor: true,
-  showAxes: false
+  showAxes: false,
+  showGrid: false
 };
 
 // Rapport metadata
@@ -65,6 +67,9 @@ export function initGUI() {
   const bgColorController = sceneFolder.addColor(settings, 'backgroundColor').name('Bakgrunnsfarge');
   sceneFolder.add(settings, 'showAxes').name('Vis aksekors').onChange((value) => {
     viewer.setAxesVisible(value);
+  });
+  sceneFolder.add(settings, 'showGrid').name('Vis Koordinat-grid').onChange((value) => {
+    grid.setGridVisible(value);
   });
   sceneFolder.open();
 
@@ -236,6 +241,10 @@ export function openPointFolder() {
 export function updateDisplay() {
   // Oppdater alle controllers i GUI
   gui.controllersRecursive().forEach(controller => controller.updateDisplay());
+
+  // Respekter synlighetsinnstillinger for aksekors og grid
+  viewer.setAxesVisible(settings.showAxes);
+  grid.setGridVisible(settings.showGrid);
 }
 
 /**
@@ -293,6 +302,10 @@ function handleInvertZ() {
   // Oppdater GUI display
   updateDisplay();
   
+  // Oppdater grid med inverterte koordinater
+  grid.updateGrid(boundingBox, offset, viewer.getScene());
+  grid.setGridVisible(settings.showGrid);
+
   console.log('Z-akse inversjon fullført');
 }
 
