@@ -6,7 +6,7 @@ import * as report from './report.js';
 import * as grid from './grid.js';
 
 let gui;
-let pointFolder, sceneFolder, boxFolder, measurementFolder;
+let pointFolder, sceneFolder, controlsFolder, boxFolder, measurementFolder;
 let boxControllers = {};
 
 // Settings objekter
@@ -58,6 +58,8 @@ export const measurementSettings = {
  */
 export function initGUI() {
   gui = new GUI();
+  gui.title('Point Cloud Viewer');
+  gui.close(); // Collapse main menu by default
   gui.domElement.style.position = 'absolute';
   gui.domElement.style.top = '20px';
   gui.domElement.style.right = '20px';
@@ -85,9 +87,18 @@ export function initGUI() {
   sceneFolder.close(); // Closed by default
 
   // Controls folder
-  const controlsFolder = gui.addFolder('Controls');
+  controlsFolder = gui.addFolder('Controls');
   controlsFolder.add({ invertZ: () => handleInvertZ() }, 'invertZ').name('🔄 Invert Z-axis');
-  controlsFolder.close(); // Closed by default
+
+  // Ensure Controls folder stays closed by default
+  controlsFolder.close();
+
+  // Override the open method to prevent Controls folder from opening
+  const originalOpen = controlsFolder.open;
+  controlsFolder.open = function() {
+    // Keep it closed by default - only allow manual opening if really needed
+    return this;
+  };
 
   // Rapport & Lokasjon folder
   setupReportGUI();
@@ -127,6 +138,38 @@ export function initGUI() {
       pointCloud.material.needsUpdate = true;
     }
   });
+
+  // Ensure Controls folder stays closed after all initialization
+  const ensureControlsClosed = () => {
+    if (controlsFolder) {
+      controlsFolder.close();
+      // Also force the DOM state
+      if (controlsFolder.domElement) {
+        const title = controlsFolder.domElement.querySelector('.lil-title');
+        const content = controlsFolder.domElement.querySelector('.lil-content');
+        if (title && content) {
+          title.setAttribute('aria-expanded', 'false');
+          content.style.display = 'none';
+        }
+      }
+    }
+  };
+
+  // Try multiple times to ensure it stays closed
+  setTimeout(ensureControlsClosed, 0);
+  setTimeout(ensureControlsClosed, 50);
+  setTimeout(ensureControlsClosed, 100);
+  setTimeout(ensureControlsClosed, 200);
+
+  // Also ensure main GUI stays closed
+  const ensureMainGUIIsClosed = () => {
+    if (gui) {
+      gui.close();
+    }
+  };
+
+  setTimeout(ensureMainGUIIsClosed, 0);
+  setTimeout(ensureMainGUIIsClosed, 50);
 
   return gui;
 }
