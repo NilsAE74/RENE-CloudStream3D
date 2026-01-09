@@ -72,7 +72,7 @@ export function updateBoxSize(width, height, depth) {
 export function selectPointsInBox(pointCloud, boxSettings, showAlert = false) {
   if (!pointCloud) {
     if (showAlert) {
-      alert('Last opp en punktsky først!');
+      alert('Upload a point cloud first!');
     }
     return 0;
   }
@@ -186,7 +186,7 @@ export function setCoordinateOffset(offsetX, offsetY, offsetZ) {
  */
 export function saveSelectedPoints(pointCloud, boxSettings) {
   if (!pointCloud) {
-    alert('Last opp en punktsky først!');
+    alert('Upload a point cloud first!');
     return;
   }
   

@@ -32,45 +32,45 @@ export function updateDashboard(pointCount, bounds, positions, fileName = '') {
   
   const { minZ, maxZ } = bounds;
   
-  // Beregn histogram
+  // Calculate histogram
   const histogram = calculateZHistogram(positions, minZ, maxZ, 10);
-  
-  // Beregn punktoppløsning (gjennomsnittlig avstand i flate områder)
+
+  // Calculate point resolution (average distance in flat areas)
   const resolution = calculatePointResolution(positions);
   
-  // Opprett HTML for dashboard
+  // Create HTML for dashboard
   const html = `
-    <h3>📊 Punktsky Statistikk</h3>
-    
+    <h3>📊 Point Cloud Statistics</h3>
+
     ${currentFileName ? `
     <div class="stat-row">
-      <span class="stat-label">Filnavn:</span>
+      <span class="stat-label">Filename:</span>
       <span class="stat-value">${currentFileName}</span>
     </div>
     ` : ''}
-    
+
     <div class="stat-row">
-      <span class="stat-label">Totalt antall punkter:</span>
+      <span class="stat-label">Total points:</span>
       <span class="stat-value">${pointCount.toLocaleString('nb-NO')}</span>
     </div>
-    
+
     <div class="stat-row">
-      <span class="stat-label">Oppløsning:</span>
+      <span class="stat-label">Resolution:</span>
       <span class="stat-value">${resolution.toFixed(3)} m</span>
     </div>
-    
+
     <div class="stat-row">
-      <span class="stat-label">Høydeområde (Z):</span>
+      <span class="stat-label">Height range (Z):</span>
       <span class="stat-value">${minZ.toFixed(2)} → ${maxZ.toFixed(2)} m</span>
     </div>
-    
+
     <div class="stat-row">
-      <span class="stat-label">Høydespenn:</span>
+      <span class="stat-label">Height span:</span>
       <span class="stat-value">${(maxZ - minZ).toFixed(2)} m</span>
     </div>
-    
+
     <div class="histogram-section">
-      <h4>Z-Høyde Histogram</h4>
+      <h4>Z-Height Histogram</h4>
       <div class="histogram">
         ${createHistogramBars(histogram, minZ, maxZ)}
       </div>
@@ -85,59 +85,59 @@ export function updateDashboard(pointCount, bounds, positions, fileName = '') {
 }
 
 /**
- * Oppdaterer metadata i dashboard
+ * Updates metadata in dashboard
  */
 export function updateMetadata(metadata) {
   currentMetadata.datum = metadata.datum || 'ED50';
   currentMetadata.projection = metadata.projection || 'UTM 32N';
-  
-  console.log('Oppdaterer metadata i dashboard:', currentMetadata);
-  
-  // Oppdater dashboard hvis det er synlig
+
+  console.log('Updating metadata in dashboard:', currentMetadata);
+
+  // Update dashboard if visible
   if (dashboardElement && dashboardElement.innerHTML) {
     const statRows = dashboardElement.querySelectorAll('.stat-row');
-    
-    // statRows[0] = Datum, statRows[1] = Projeksjon
+
+    // statRows[0] = Datum, statRows[1] = Projection
     if (statRows.length >= 2) {
       const datumValue = statRows[0].querySelector('.stat-value');
       const projValue = statRows[1].querySelector('.stat-value');
-      
+
       if (datumValue) {
         datumValue.textContent = currentMetadata.datum;
-        console.log('✓ Dashboard Datum oppdatert til:', currentMetadata.datum);
+        console.log('✓ Dashboard Datum updated to:', currentMetadata.datum);
       }
-      
+
       if (projValue) {
         projValue.textContent = currentMetadata.projection;
-        console.log('✓ Dashboard Projeksjon oppdatert til:', currentMetadata.projection);
+        console.log('✓ Dashboard Projection updated to:', currentMetadata.projection);
       }
     }
   }
 }
 
 /**
- * Tømmer dashboard
+ * Clears dashboard
  */
 export function clearDashboard() {
   if (!dashboardElement) return;
-  dashboardElement.innerHTML = '<p class="no-data">Last opp en punktsky for å se statistikk</p>';
+  dashboardElement.innerHTML = '<p class="no-data">Upload a point cloud to see statistics</p>';
 }
 
 /**
- * Beregner punktoppløsning (gjennomsnittlig avstand mellom punkter i flate områder)
+ * Calculates point resolution (average distance between points in flat areas)
  */
 function calculatePointResolution(positions) {
   const numPoints = positions.length / 3;
-  
-  // For store punktskyer, sample kun en del av punktene
+
+  // For large point clouds, sample only a portion of the points
   const maxSamples = Math.min(5000, numPoints);
   const sampleInterval = Math.max(1, Math.floor(numPoints / maxSamples));
-  
-  // Del punktskyen i grid-celler for raskere søk
-  const gridSize = 50; // Antall celler i hver retning
+
+  // Divide point cloud into grid cells for faster search
+  const gridSize = 50; // Number of cells in each direction
   const grid = new Map();
-  
-  // Finn min/max for grid
+
+  // Find min/max for grid
   let minX = Infinity, maxX = -Infinity;
   let minY = Infinity, maxY = -Infinity;
   
@@ -155,40 +155,40 @@ function calculatePointResolution(positions) {
   const cellSizeX = rangeX / gridSize;
   const cellSizeY = rangeY / gridSize;
   
-  // Populer grid
+  // Populate grid
   for (let i = 0; i < positions.length; i += 3) {
     const x = positions[i];
     const y = positions[i + 1];
     const z = positions[i + 2];
-    
+
     const cellX = Math.floor((x - minX) / cellSizeX);
     const cellY = Math.floor((y - minY) / cellSizeY);
     const key = `${cellX},${cellY}`;
-    
+
     if (!grid.has(key)) {
       grid.set(key, []);
     }
     grid.get(key).push({ x, y, z, index: i });
   }
-  
-  // Finn celler med lav Z-variasjon (flate områder)
+
+  // Find cells with low Z variation (flat areas)
   const flatCells = [];
   for (const [key, points] of grid.entries()) {
-    if (points.length < 10) continue; // Skip celler med for få punkter
-    
-    // Beregn Z standard deviation
+    if (points.length < 10) continue; // Skip cells with too few points
+
+    // Calculate Z standard deviation
     const avgZ = points.reduce((sum, p) => sum + p.z, 0) / points.length;
     const variance = points.reduce((sum, p) => sum + Math.pow(p.z - avgZ, 2), 0) / points.length;
     const stdDev = Math.sqrt(variance);
-    
-    if (stdDev < 0.5) { // Flate områder (< 0.5m variasjon)
+
+    if (stdDev < 0.5) { // Flat areas (< 0.5m variation)
       flatCells.push(points);
     }
   }
-  
+
   if (flatCells.length === 0) {
-    // Fallback: bruk alle punkter hvis ingen flate områder
-    console.warn('Ingen flate områder funnet, bruker alle punkter');
+    // Fallback: use all points if no flat areas found
+    console.warn('No flat areas found, using all points');
     flatCells.push(Array.from({ length: Math.min(1000, numPoints) }, (_, i) => ({
       x: positions[i * 3 * sampleInterval],
       y: positions[i * 3 * sampleInterval + 1],
@@ -196,97 +196,97 @@ function calculatePointResolution(positions) {
     })));
   }
   
-  // Sample punkter fra flate områder og beregn nærmeste nabo-avstand
+  // Sample points from flat areas and calculate nearest neighbor distance
   const distances = [];
   const maxDistanceSamples = 500;
-  
-  for (const cellPoints of flatCells.slice(0, 20)) { // Max 20 celler
+
+  for (const cellPoints of flatCells.slice(0, 20)) { // Max 20 cells
     const sampleSize = Math.min(25, cellPoints.length);
-    
+
     for (let i = 0; i < sampleSize; i++) {
       const point = cellPoints[Math.floor(Math.random() * cellPoints.length)];
       let minDist = Infinity;
-      
-      // Finn nærmeste nabo
+
+      // Find nearest neighbor
       for (const other of cellPoints) {
         if (point === other) continue;
-        
+
         const dx = point.x - other.x;
         const dy = point.y - other.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (dist < minDist && dist > 0.001) {
           minDist = dist;
         }
       }
-      
+
       if (minDist < Infinity) {
         distances.push(minDist);
       }
-      
+
       if (distances.length >= maxDistanceSamples) break;
     }
-    
+
     if (distances.length >= maxDistanceSamples) break;
   }
-  
-  // Beregn gjennomsnitt
+
+  // Calculate average
   if (distances.length === 0) {
-    // Ekstra fallback: estimer fra area og antall punkter
+    // Extra fallback: estimate from area and number of points
     const area = rangeX * rangeY;
     const avgArea = area / numPoints;
     return Math.sqrt(avgArea);
   }
-  
+
   const avgDistance = distances.reduce((sum, d) => sum + d, 0) / distances.length;
-  console.log(`Punktoppløsning beregnet fra ${distances.length} samples i ${flatCells.length} flate områder`);
-  
+  console.log(`Point resolution calculated from ${distances.length} samples in ${flatCells.length} flat areas`);
+
   return avgDistance;
 }
 
 /**
- * Beregner histogram for Z-verdier
+ * Calculates histogram for Z-values
  */
 function calculateZHistogram(positions, minZ, maxZ, numBins) {
   const bins = new Array(numBins).fill(0);
   const range = maxZ - minZ;
   const binSize = range / numBins;
-  
-  // Tell punkter i hver bin
+
+  // Count points in each bin
   for (let i = 0; i < positions.length; i += 3) {
-    const z = positions[i + 2]; // Z er den tredje verdien
-    
-    // Beregn hvilken bin dette punktet tilhører
+    const z = positions[i + 2]; // Z is the third value
+
+    // Calculate which bin this point belongs to
     let binIndex = Math.floor((z - minZ) / binSize);
-    
-    // Håndter edge case hvor z === maxZ
+
+    // Handle edge case where z === maxZ
     if (binIndex >= numBins) binIndex = numBins - 1;
     if (binIndex < 0) binIndex = 0;
-    
+
     bins[binIndex]++;
   }
-  
+
   return bins;
 }
 
 /**
- * Lager HTML for histogram bars
+ * Creates HTML for histogram bars
  */
 function createHistogramBars(histogram, minZ, maxZ) {
   const maxCount = Math.max(...histogram);
   const numBins = histogram.length;
   const binSize = (maxZ - minZ) / numBins;
-  
+
   let html = '';
-  
+
   for (let i = 0; i < histogram.length; i++) {
     const count = histogram[i];
     const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
     const binStart = minZ + (i * binSize);
     const binEnd = binStart + binSize;
-    
+
     html += `
-      <div class="histogram-bar-container" title="${count.toLocaleString('nb-NO')} punkter (${binStart.toFixed(2)} - ${binEnd.toFixed(2)} m)">
+      <div class="histogram-bar-container" title="${count.toLocaleString('nb-NO')} points (${binStart.toFixed(2)} - ${binEnd.toFixed(2)} m)">
         <div class="histogram-bar" style="height: ${percentage}%">
           <span class="bar-count">${count > 0 ? formatCount(count) : ''}</span>
         </div>
@@ -294,7 +294,7 @@ function createHistogramBars(histogram, minZ, maxZ) {
       </div>
     `;
   }
-  
+
   return html;
 }
 
@@ -311,7 +311,7 @@ function formatCount(count) {
 }
 
 /**
- * Viser en melding i dashboard
+ * Shows a message in dashboard
  */
 export function showDashboardMessage(message, type = 'info') {
   if (!dashboardElement) return;
@@ -330,4 +330,30 @@ export function showDashboardMessage(message, type = 'info') {
     messageDiv.style.opacity = '0';
     setTimeout(() => messageDiv.remove(), 300);
   }, 3000);
+}
+
+/**
+ * Shows loading spinner with optional message
+ */
+export function showLoadingSpinner(message = 'Loading...') {
+  const overlay = document.getElementById('loading-overlay');
+  const text = overlay?.querySelector('.loading-text');
+  
+  if (overlay) {
+    if (text) {
+      text.textContent = message;
+    }
+    overlay.classList.add('active');
+  }
+}
+
+/**
+ * Hides loading spinner
+ */
+export function hideLoadingSpinner() {
+  const overlay = document.getElementById('loading-overlay');
+  
+  if (overlay) {
+    overlay.classList.remove('active');
+  }
 }

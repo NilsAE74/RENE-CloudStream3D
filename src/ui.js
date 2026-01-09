@@ -20,12 +20,12 @@ export const settings = {
   showLegend: true
 };
 
-// Rapport metadata
+// Report metadata
 export const reportSettings = {
-  projectName: 'Mitt Prosjekt',
+  projectName: 'My Project',
   datum: 'ED50',
   projection: 'UTM 32N',
-  description: 'Punktsky data',
+  description: 'Point cloud data',
   generateReport: async () => await handleGenerateReport()
 };
 
@@ -42,15 +42,15 @@ export const boxSettings = {
   visible: false,
   transformMode: 'translate',
   hideOutside: true,
-  selectPoints: null,  // Vil bli satt senere
-  saveSelected: null   // Vil bli satt senere
+  selectPoints: null,  // Will be set later
+  saveSelected: null   // Will be set later
 };
 
-// Måleverktøy innstillinger
+// Measurement tool settings
 export const measurementSettings = {
   active: false,
-  clearAll: null,  // Vil bli satt senere
-  measurementTool: null  // Referanse til MeasurementTool-instans
+  clearAll: null,  // Will be set later
+  measurementTool: null  // Reference to MeasurementTool instance
 };
 
 /**
@@ -62,32 +62,32 @@ export function initGUI() {
   gui.domElement.style.top = '20px';
   gui.domElement.style.right = '20px';
 
-  // Punktsky innstillinger folder
-  pointFolder = gui.addFolder('Punktsky Innstillinger');
+  // Point cloud settings folder
+  pointFolder = gui.addFolder('Point Cloud Settings');
   
   const sizeController = pointFolder.add(settings, 'pointSize', 0.01, 1, 0.01).name('Point Size');
   const colorController = pointFolder.addColor(settings, 'pointColor').name('Point Color');
-  const heightColorController = pointFolder.add(settings, 'useHeightColor').name('Høyde-basert Farge');
-  pointFolder.close();
+  const heightColorController = pointFolder.add(settings, 'useHeightColor').name('Height-based Color');
+  pointFolder.close(); // Closed by default
 
-  // Scene innstillinger folder
-  sceneFolder = gui.addFolder('Scene Innstillinger');
-  const bgColorController = sceneFolder.addColor(settings, 'backgroundColor').name('Bakgrunnsfarge');
-  sceneFolder.add(settings, 'showAxes').name('Vis aksekors').onChange((value) => {
+  // Scene settings folder
+  sceneFolder = gui.addFolder('Scene Settings');
+  const bgColorController = sceneFolder.addColor(settings, 'backgroundColor').name('Background Color');
+  sceneFolder.add(settings, 'showAxes').name('Show Axes').onChange((value) => {
     viewer.setAxesVisible(value);
   });
-  sceneFolder.add(settings, 'showGrid').name('Vis Koordinat-grid').onChange((value) => {
+  sceneFolder.add(settings, 'showGrid').name('Show Coordinate Grid').onChange((value) => {
     grid.setGridVisible(value);
   });
-  sceneFolder.add(settings, 'showLegend').name('Vis Høyde-legend').onChange((value) => {
+  sceneFolder.add(settings, 'showLegend').name('Show Height Legend').onChange((value) => {
     setLegendVisible(value);
   });
-  sceneFolder.open();
+  sceneFolder.close(); // Closed by default
 
-  // Kontroller folder
-  const controlsFolder = gui.addFolder('Kontroller');
-  controlsFolder.add({ invertZ: () => handleInvertZ() }, 'invertZ').name('🔄 Inverter Z-akse');
-  controlsFolder.open();
+  // Controls folder
+  const controlsFolder = gui.addFolder('Controls');
+  controlsFolder.add({ invertZ: () => handleInvertZ() }, 'invertZ').name('🔄 Invert Z-axis');
+  controlsFolder.close(); // Closed by default
 
   // Rapport & Lokasjon folder
   setupReportGUI();
@@ -132,257 +132,259 @@ export function initGUI() {
 }
 
 /**
- * Setter opp Selection Box GUI
+ * Sets up Selection Box GUI
  */
 function setupSelectionBoxGUI() {
   boxFolder = gui.addFolder('Selection Box');
-  
-  boxControllers.visible = boxFolder.add(boxSettings, 'visible').name('Vis boks').onChange((value) => {
+
+  boxControllers.visible = boxFolder.add(boxSettings, 'visible').name('Show Box').onChange((value) => {
     const selBox = selection.getSelectionBox();
     const transControls = selection.getTransformControls();
     const pointCloud = viewer.getPointCloud();
-    
+
     selBox.visible = value;
     transControls.visible = value;
-    
-    // Automatisk velg punkter når boksen aktiveres (uten alert)
+
+    // Automatically select points when box is activated (without alert)
     if (value && pointCloud) {
       selection.selectPointsInBox(pointCloud, boxSettings, false);
     } else if (!value && pointCloud) {
       selection.restoreOriginalColors(pointCloud);
     }
   });
-  
-  boxControllers.mode = boxFolder.add(boxSettings, 'transformMode', ['translate', 'rotate', 'scale']).name('Kontroll Modus').onChange((value) => {
+
+  boxControllers.mode = boxFolder.add(boxSettings, 'transformMode', ['translate', 'rotate', 'scale']).name('Control Mode').onChange((value) => {
     selection.getTransformControls().setMode(value);
   });
-  
-  boxFolder.add(boxSettings, 'hideOutside').name('Blek ut utenfor').onChange(() => {
+
+  boxFolder.add(boxSettings, 'hideOutside').name('Fade Outside').onChange(() => {
     if (boxSettings.visible) {
       selection.selectPointsInBox(viewer.getPointCloud(), boxSettings, false);
     }
   });
-  
-  boxControllers.x = boxFolder.add(boxSettings, 'x', -100, 100, 0.1).name('Posisjon X').onChange((value) => {
+
+  boxControllers.x = boxFolder.add(boxSettings, 'x', -100, 100, 0.1).name('Position X').onChange((value) => {
     selection.getSelectionBox().position.x = value;
     if (boxSettings.visible) {
       selection.selectPointsInBox(viewer.getPointCloud(), boxSettings, false);
     }
   });
-  
-  boxControllers.y = boxFolder.add(boxSettings, 'y', -100, 100, 0.1).name('Posisjon Y').onChange((value) => {
+
+  boxControllers.y = boxFolder.add(boxSettings, 'y', -100, 100, 0.1).name('Position Y').onChange((value) => {
     selection.getSelectionBox().position.y = value;
     if (boxSettings.visible) {
       selection.selectPointsInBox(viewer.getPointCloud(), boxSettings, false);
     }
   });
-  
-  boxControllers.z = boxFolder.add(boxSettings, 'z', -100, 100, 0.1).name('Posisjon Z (Høyde)').onChange((value) => {
+
+  boxControllers.z = boxFolder.add(boxSettings, 'z', -100, 100, 0.1).name('Position Z (Height)').onChange((value) => {
     selection.getSelectionBox().position.z = value;
     if (boxSettings.visible) {
       selection.selectPointsInBox(viewer.getPointCloud(), boxSettings, false);
     }
   });
   
-  boxControllers.width = boxFolder.add(boxSettings, 'width', 0.1, 50, 0.1).name('Bredde (X)').onChange((value) => {
+  boxControllers.width = boxFolder.add(boxSettings, 'width', 0.1, 50, 0.1).name('Width (X)').onChange((value) => {
     selection.updateBoxSize(value, boxSettings.height, boxSettings.depth);
     if (boxSettings.visible) {
       selection.selectPointsInBox(viewer.getPointCloud(), boxSettings, false);
     }
   });
-  
-  boxControllers.height = boxFolder.add(boxSettings, 'height', 0.1, 50, 0.1).name('Dybde (Y)').onChange((value) => {
+
+  boxControllers.height = boxFolder.add(boxSettings, 'height', 0.1, 50, 0.1).name('Depth (Y)').onChange((value) => {
     selection.updateBoxSize(boxSettings.width, value, boxSettings.depth);
     if (boxSettings.visible) {
       selection.selectPointsInBox(viewer.getPointCloud(), boxSettings, false);
     }
   });
-  
-  boxControllers.depth = boxFolder.add(boxSettings, 'depth', 0.1, 50, 0.1).name('Høyde (Z)').onChange((value) => {
+
+  boxControllers.depth = boxFolder.add(boxSettings, 'depth', 0.1, 50, 0.1).name('Height (Z)').onChange((value) => {
     selection.updateBoxSize(boxSettings.width, boxSettings.height, value);
     if (boxSettings.visible) {
       selection.selectPointsInBox(viewer.getPointCloud(), boxSettings, false);
     }
   });
-  
-  // Knapper for seleksjon og lagring
+
+  // Buttons for selection and saving
   boxSettings.selectPoints = () => {
     selection.selectPointsInBox(viewer.getPointCloud(), boxSettings, true);
   };
   boxSettings.saveSelected = () => {
     selection.saveSelectedPoints(viewer.getPointCloud(), boxSettings);
   };
-  
-  boxFolder.add(boxSettings, 'selectPoints').name('🔍 Velg Punkter');
-  boxFolder.add(boxSettings, 'saveSelected').name('💾 Lagre Valgte');
+
+  boxFolder.add(boxSettings, 'selectPoints').name('🔍 Select Points');
+  boxFolder.add(boxSettings, 'saveSelected').name('💾 Save Selected');
   boxFolder.close();
 }
 
 /**
- * Oppdaterer GUI ranges basert på data bounds
+ * Updates GUI ranges based on data bounds
  */
 export function updateGUIRanges(bounds) {
   const { minX, maxX, minY, maxY, minZ, maxZ } = bounds;
   const padding = 10;
-  
-  // Oppdater posisjon-sliders
+
+  // Update position sliders
   boxControllers.x.min(minX - padding).max(maxX + padding);
   boxControllers.y.min(minY - padding).max(maxY + padding);
   boxControllers.z.min(minZ - padding).max(maxZ + padding);
-  
-  // Oppdater størrelse-sliders
+
+  // Update size sliders
   const maxWidth = (maxX - minX) * 2;
   const maxHeight = (maxY - minY) * 2;
   const maxDepth = (maxZ - minZ) * 2;
-  
+
   boxControllers.width.min(0.1).max(maxWidth);
   boxControllers.height.min(0.1).max(maxHeight);
   boxControllers.depth.min(0.1).max(maxDepth);
-  
-  console.log('GUI ranges oppdatert basert på data bounds');
+
+  console.log('GUI ranges updated based on data bounds');
 }
 
 /**
- * Åpner punktsky folder
+ * Opens point cloud folder
  */
 export function openPointFolder() {
   pointFolder.open();
 }
 
 /**
- * Oppdaterer GUI display
+ * Updates GUI display
  */
 export function updateDisplay() {
-  // Oppdater alle controllers i GUI
+  // Update all controllers in GUI
   gui.controllersRecursive().forEach(controller => controller.updateDisplay());
 
-  // Respekter synlighetsinnstillinger for aksekors og grid
+  // Respect visibility settings for axes and grid
   viewer.setAxesVisible(settings.showAxes);
   grid.setGridVisible(settings.showGrid);
 }
 
 /**
- * Håndterer Z-akse inversjon
+ * Handles Z-axis inversion
  */
 function handleInvertZ() {
   const result = viewer.invertZAxis();
-  
+
   if (!result) {
-    console.warn('Kunne ikke invertere Z-akse');
+    console.warn('Could not invert Z-axis');
     return;
   }
-  
+
   const { center, size, positions, boundingBox, originalMinZ, originalMaxZ } = result;
-  
+
   const pointCount = positions.length / 3;
-  
-  // Hent koordinat-offset for å beregne originale X/Y bounds
+
+  // Get coordinate offset to calculate original X/Y bounds
   const offset = viewer.getCoordinateOffset();
   
-  // Konverter sentrerte posisjoner tilbake til originale for histogram
+  // Convert centered positions back to original for histogram
   const originalPositions = new Float32Array(positions.length);
   for (let i = 0; i < positions.length; i += 3) {
     originalPositions[i] = positions[i] + offset.x;
     originalPositions[i + 1] = positions[i + 1] + offset.y;
-    originalPositions[i + 2] = positions[i + 2] + offset.z;  // Bruker det inverterte offset
+    originalPositions[i + 2] = positions[i + 2] + offset.z;  // Using the inverted offset
   }
-  
-  // Oppdater dashboard med ORIGINALE verdier
+
+  // Update dashboard with ORIGINAL values
   stats.updateDashboard(pointCount, {
     minX: boundingBox.min.x + offset.x,
     maxX: boundingBox.max.x + offset.x,
     minY: boundingBox.min.y + offset.y,
     maxY: boundingBox.max.y + offset.y,
-    minZ: originalMinZ,  // Allerede konvertert til original i viewer.js
-    maxZ: originalMaxZ   // Allerede konvertert til original i viewer.js
+    minZ: originalMinZ,  // Already converted to original in viewer.js
+    maxZ: originalMaxZ   // Already converted to original in viewer.js
   }, originalPositions);
-  
-  // Oppdater legend med nye Z-verdier
+
+  // Update legend with new Z-values
   updateLegend(originalMinZ, originalMaxZ);
-  
-  stats.showDashboardMessage('✓ Z-akse invertert!', 'info');
-  
-  // Oppdater selection box hvis den er aktiv
+
+  stats.showDashboardMessage('✓ Z-axis inverted!', 'info');
+
+  // Update selection box if active
   const selectionBox = selection.getSelectionBox();
   if (selectionBox && boxSettings.visible) {
-    // Inverter box position Z
+    // Invert box position Z
     selectionBox.position.z = -selectionBox.position.z;
     boxSettings.z = selectionBox.position.z;
-    
-    // Oppdater seleksjon
+
+    // Update selection
     selection.selectPointsInBox(viewer.getPointCloud(), boxSettings, false);
   } else {
-    // Reposisjonér selection box til nye bounds (selv om den er skjult)
+    // Reposition selection box to new bounds (even if hidden)
     selection.positionSelectionBox(center, size, boxSettings);
   }
-  
-  // Oppdater GUI display
+
+  // Update GUI display
   updateDisplay();
-  
-  // Oppdater grid med inverterte koordinater
+
+  // Update grid with inverted coordinates
   grid.updateGrid(boundingBox, offset, viewer.getScene());
   grid.setGridVisible(settings.showGrid);
 
-  console.log('Z-akse inversjon fullført');
+  console.log('Z-axis inversion completed');
 }
 
 /**
- * Setter opp Måleverktøy GUI
+ * Sets up Measurement Tool GUI
  */
 function setupMeasurementGUI() {
-  measurementFolder = gui.addFolder('📏 Måleverktøy');
-  
-  // Aktiver måling checkbox
-  measurementFolder.add(measurementSettings, 'active').name('Aktiver måling').onChange((value) => {
+  measurementFolder = gui.addFolder('📏 Measurement Tool');
+
+  // Activate measurement checkbox
+  measurementFolder.add(measurementSettings, 'active').name('Activate Measurement').onChange((value) => {
     if (measurementSettings.measurementTool) {
       measurementSettings.measurementTool.setActive(value);
-      
-      // Measurement box vises automatisk når en måling er fullført
+
+      // Measurement box shows automatically when a measurement is completed
       if (!value) {
-        // Skjul measurement box når verktøyet deaktiveres (valgfritt)
+        // Hide measurement box when tool is deactivated (optional)
         // stats.showMeasurementSection(false);
       }
     }
   });
-  
-  // Slett alle mål knapp
+
+  // Delete all measurements button
   measurementSettings.clearAll = () => {
     if (measurementSettings.measurementTool) {
       measurementSettings.measurementTool.clearAllMeasurements();
-      stats.showDashboardMessage('✓ Alle målinger slettet', 'info');
+      stats.showDashboardMessage('✓ All measurements deleted', 'info');
     }
   };
-  
-  measurementFolder.add(measurementSettings, 'clearAll').name('🗑️ Slett alle mål');
+
+  measurementFolder.add(measurementSettings, 'clearAll').name('🗑️ Delete All Measurements');
   measurementFolder.close();
 }
 
 /**
- * Setter opp Rapport & Lokasjon GUI
+ * Sets up Report & Location GUI
  */
 function setupReportGUI() {
-  const reportFolder = gui.addFolder('📄 Rapport & Lokasjon');
-  
-  reportFolder.add(reportSettings, 'projectName').name('Prosjektnavn');
+  const reportFolder = gui.addFolder('📄 Report & Location');
+
+  reportFolder.add(reportSettings, 'projectName').name('Project Name');
   reportFolder.add(reportSettings, 'datum').name('Datum');
-  reportFolder.add(reportSettings, 'projection').name('Projeksjon');
-  reportFolder.add(reportSettings, 'description').name('Beskrivelse');
-  
-  reportFolder.add(reportSettings, 'generateReport').name('📥 Generer PDF-rapport');
+  reportFolder.add(reportSettings, 'projection').name('Projection');
+  reportFolder.add(reportSettings, 'description').name('Description');
+
+  reportFolder.add(reportSettings, 'generateReport').name('📥 Generate PDF Report');
   reportFolder.close();
 }
 
 /**
- * Håndterer PDF-rapport generering
+ * Handles PDF report generation
  */
 async function handleGenerateReport() {
   try {
     if (!currentStats) {
-      stats.showDashboardMessage('⚠️ Last inn en punktsky først', 'error');
+      stats.showDashboardMessage('⚠️ Load a point cloud first', 'error');
       return;
     }
-    
-    stats.showDashboardMessage('⏳ Genererer PDF-rapport...', 'info');
+
+    // Show loading spinner
+    stats.showLoadingSpinner('Generating PDF report...');
+    stats.showDashboardMessage('⏳ Generating PDF report...', 'info');
     
     const reportData = {
       projectName: reportSettings.projectName,
@@ -403,39 +405,42 @@ async function handleGenerateReport() {
       stats
     );
     
-    stats.showDashboardMessage('✓ PDF-rapport generert og lastet ned!', 'info');
-    
+    // Hide loading spinner
+    stats.hideLoadingSpinner();
+    stats.showDashboardMessage('✓ PDF report generated and downloaded!', 'info');
+
   } catch (error) {
-    console.error('Feil ved rapport-generering:', error);
-    stats.showDashboardMessage('❌ Feil ved PDF-generering', 'error');
+    stats.hideLoadingSpinner();
+    console.error('Error in report generation:', error);
+    stats.showDashboardMessage('❌ Error in PDF generation', 'error');
   }
 }
 
 /**
- * Oppdaterer statistikk for rapport
+ * Updates statistics for report
  */
 export function updateStats(statsData) {
   currentStats = statsData;
 }
 
 /**
- * Henter renderer for PDF
+ * Gets renderer for PDF
  */
 function getRendererForPDF() {
-  // Få tak i renderer via viewer-modulen
+  // Get renderer via viewer module
   const scene = viewer.getScene();
   return scene ? scene.userData.renderer : null;
 }
 
 /**
- * Henter GUI
+ * Gets GUI
  */
 export function getGUI() {
   return gui;
 }
 
 /**
- * Oppdaterer høyde-legend med Z-verdier
+ * Updates height legend with Z-values
  */
 export function updateLegend(minZ, maxZ) {
   const legend = document.getElementById('height-legend');
@@ -458,7 +463,7 @@ export function updateLegend(minZ, maxZ) {
 }
 
 /**
- * Viser/skjuler legend
+ * Shows/hides legend
  */
 export function setLegendVisible(visible) {
   const legend = document.getElementById('height-legend');
@@ -468,7 +473,7 @@ export function setLegendVisible(visible) {
 }
 
 /**
- * Setter referanse til measurement tool
+ * Sets reference to measurement tool
  */
 export function setMeasurementTool(tool) {
   measurementSettings.measurementTool = tool;

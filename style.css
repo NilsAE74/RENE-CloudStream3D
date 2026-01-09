@@ -1,8 +1,57 @@
+/* ================================
+   GLOBAL DESIGN SYSTEM
+   ================================ */
+
+:root {
+  /* Color Palette */
+  --bg-dark: rgba(25, 25, 25, 0.85);
+  --bg-darker: rgba(15, 15, 15, 0.92);
+  --bg-overlay: rgba(20, 20, 30, 0.92);
+  --accent-primary: #00aaff;
+  --accent-hover: #0088cc;
+  --accent-glow: rgba(0, 170, 255, 0.3);
+  --text-primary: #e8e8e8;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-tertiary: rgba(255, 255, 255, 0.5);
+  --border-color: rgba(255, 255, 255, 0.2);
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --success: #4CAF50;
+  --warning: #FFA726;
+  --error: #F44336;
+  
+  /* Glassmorphism */
+  --glass-blur: blur(10px);
+  --glass-bg: rgba(25, 25, 25, 0.75);
+  
+  /* Spacing & Layout */
+  --padding-standard: 12px;
+  --padding-large: 16px;
+  --padding-small: 8px;
+  --border-radius: 6px;
+  --border-radius-large: 8px;
+  
+  /* Typography */
+  --font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-base: 14px;
+  --font-size-small: 12px;
+  --font-size-large: 16px;
+  --font-size-title: 18px;
+  
+  /* Shadows */
+  --shadow-small: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-large: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 20px var(--accent-glow);
+}
+
 body {
   margin: 0;
   overflow: hidden;
   position: relative;
   transition: background-color 0.3s ease;
+  font-family: var(--font-family);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
 }
 
 /* Drag and Drop overlay */
@@ -36,86 +85,133 @@ canvas {
   display: none;
 }
 
+/* ================================
+   BUTTONS & INTERACTIVE ELEMENTS
+   ================================ */
+
 .upload-button {
   position: absolute;
   top: 20px;
   left: 20px;
   z-index: 100;
-  padding: 12px 24px;
-  background-color: rgba(0, 150, 255, 0.85);
-  color: white;
-  border-radius: 5px;
+  padding: var(--padding-standard) 24px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius);
   cursor: pointer;
-  font-family: Arial, sans-serif;
-  font-size: 16px;
-  font-weight: bold;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  transition: background-color 0.3s ease;
+  font-family: var(--font-family);
+  font-size: var(--font-size-large);
+  font-weight: 600;
+  box-shadow: var(--shadow-medium);
+  transition: all 0.3s ease;
+  backdrop-filter: var(--glass-blur);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .upload-button:hover {
-  background-color: rgba(0, 120, 200, 0.95);
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent-primary));
+  box-shadow: var(--shadow-large), var(--shadow-glow);
+  transform: translateY(-2px);
 }
 
-/* Dashboard styling */
+.upload-button:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-small);
+}
+
+/* ================================
+   DASHBOARD & PANELS (Glassmorphism)
+   ================================ */
+
 .dashboard {
   position: absolute;
   bottom: 20px;
   left: 20px;
-  min-width: 300px;
-  max-width: 400px;
-  background-color: rgba(20, 20, 30, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: 16px;
-  color: white;
-  font-family: Arial, sans-serif;
-  font-size: 14px;
+  min-width: 320px;
+  max-width: 420px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-large);
+  padding: var(--padding-large);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
   z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-medium);
+  transition: all 0.3s ease;
+}
+
+.dashboard:hover {
+  box-shadow: var(--shadow-large);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .dashboard h3 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
-  font-weight: bold;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  padding-bottom: 8px;
+  margin: 0 0 var(--padding-standard) 0;
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  border-bottom: 2px solid var(--accent-primary);
+  padding-bottom: var(--padding-small);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-primary);
 }
 
 .dashboard h4 {
-  margin: 12px 0 8px 0;
-  font-size: 14px;
-  font-weight: bold;
-  color: rgba(255, 255, 255, 0.9);
+  margin: var(--padding-standard) 0 var(--padding-small) 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 13px;
 }
 
 .stat-row {
   display: flex;
   justify-content: space-between;
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  align-items: center;
+  padding: var(--padding-small) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background-color 0.2s ease;
+}
+
+.stat-row:hover {
+  background-color: rgba(0, 170, 255, 0.05);
+  border-bottom-color: var(--accent-primary);
 }
 
 .stat-label {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  font-weight: 500;
 }
 
 .stat-value {
-  color: #4CAF50;
-  font-weight: bold;
+  color: var(--accent-primary);
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  text-shadow: 0 0 10px var(--accent-glow);
 }
 
 .no-data {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary);
   font-style: italic;
   text-align: center;
-  margin: 8px 0;
+  margin: var(--padding-small) 0;
+  padding: var(--padding-large);
 }
 
-/* Histogram styling */
+/* ================================
+   HISTOGRAM
+   ================================ */
+
 .histogram-section {
-  margin-top: 16px;
+  margin-top: var(--padding-large);
 }
 
 .histogram {
@@ -123,11 +219,13 @@ canvas {
   align-items: flex-end;
   justify-content: space-between;
   height: 120px;
-  margin-top: 8px;
-  padding: 8px;
-  background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  gap: 2px;
+  margin-top: var(--padding-small);
+  padding: var(--padding-small);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  gap: 3px;
+  backdrop-filter: blur(5px);
 }
 
 .histogram-bar-container {
@@ -141,78 +239,103 @@ canvas {
 
 .histogram-bar {
   width: 100%;
-  background: linear-gradient(to top, #4CAF50, #8BC34A);
-  border-radius: 2px 2px 0 0;
+  background: linear-gradient(to top, var(--accent-primary), var(--accent-hover));
+  border-radius: 3px 3px 0 0;
   position: relative;
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  min-height: 2px;
+  min-height: 3px;
+  box-shadow: 0 0 10px rgba(0, 170, 255, 0.3);
 }
 
 .histogram-bar-container:hover .histogram-bar {
-  background: linear-gradient(to top, #66BB6A, #AED581);
+  background: linear-gradient(to top, #00d4ff, var(--accent-primary));
+  box-shadow: 0 0 15px rgba(0, 170, 255, 0.6);
+  transform: scaleY(1.05);
 }
 
 .bar-count {
   font-size: 9px;
-  color: white;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  color: var(--text-primary);
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
   margin-top: 2px;
+  font-weight: 600;
 }
 
 .bar-label {
   font-size: 9px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   margin-top: 4px;
   text-align: center;
   white-space: nowrap;
+  font-weight: 500;
 }
 
-/* Dashboard messages */
+/* ================================
+   MESSAGES & NOTIFICATIONS
+   ================================ */
+
 .dashboard-message {
-  padding: 8px 12px;
-  margin-bottom: 12px;
-  border-radius: 4px;
+  padding: var(--padding-small) var(--padding-standard);
+  margin-bottom: var(--padding-standard);
+  border-radius: var(--border-radius);
   font-size: 13px;
-  transition: opacity 0.3s ease;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+  font-weight: 500;
 }
 
 .message-info {
-  background-color: rgba(33, 150, 243, 0.2);
-  border-left: 3px solid #2196F3;
+  background: linear-gradient(90deg, rgba(0, 170, 255, 0.25), rgba(0, 170, 255, 0.1));
+  border-left: 3px solid var(--accent-primary);
+  box-shadow: 0 0 15px rgba(0, 170, 255, 0.2);
 }
 
 .message-error {
-  background-color: rgba(244, 67, 54, 0.2);
-  border-left: 3px solid #F44336;
+  background: linear-gradient(90deg, rgba(244, 67, 54, 0.25), rgba(244, 67, 54, 0.1));
+  border-left: 3px solid var(--error);
+  box-shadow: 0 0 15px rgba(244, 67, 54, 0.2);
 }
 
-/* Height Legend styling */
+/* ================================
+   HEIGHT LEGEND
+   ================================ */
+
 .height-legend {
   position: absolute;
   bottom: 20px;
   right: 20px;
-  width: 80px;
-  background-color: rgba(20, 20, 30, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: 12px;
-  color: white;
-  font-family: Arial, sans-serif;
-  font-size: 12px;
+  width: 90px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-large);
+  padding: var(--padding-standard);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-small);
   z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-medium);
+  transition: all 0.3s ease;
+}
+
+.height-legend:hover {
+  box-shadow: var(--shadow-large);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .legend-title {
   text-align: center;
-  font-weight: bold;
+  font-weight: 700;
   margin-bottom: 10px;
   font-size: 13px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  padding-bottom: 6px;
+  border-bottom: 2px solid var(--accent-primary);
+  padding-bottom: var(--padding-small);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .legend-scale {
@@ -222,7 +345,7 @@ canvas {
 }
 
 .legend-gradient {
-  width: 30px;
+  width: 32px;
   height: 100%;
   background: linear-gradient(to top, 
     hsl(216, 100%, 50%) 0%,    /* Blå (lav Z) */
@@ -231,9 +354,10 @@ canvas {
     hsl(60, 100%, 50%) 75%,    /* Gul */
     hsl(0, 100%, 50%) 100%     /* Rød (høy Z) */
   );
-  border-radius: 3px;
-  margin-right: 8px;
-  box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.5);
+  border-radius: var(--border-radius);
+  margin-right: var(--padding-small);
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.6), 0 0 10px rgba(0, 170, 255, 0.2);
+  border: 1px solid var(--border-subtle);
 }
 
 .legend-labels {
@@ -241,7 +365,8 @@ canvas {
   flex-direction: column;
   justify-content: space-between;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .legend-max,
@@ -249,14 +374,289 @@ canvas {
 .legend-min {
   white-space: nowrap;
   text-align: left;
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
 }
 
 .legend-max {
   color: #ff6b6b;
-  font-weight: bold;
+  font-weight: 700;
+}
+
+.legend-mid {
+  color: var(--accent-primary);
+  font-weight: 600;
 }
 
 .legend-min {
   color: #4ecdc4;
-  font-weight: bold;
+  font-weight: 700;
+}
+
+/* ================================
+   LIL-GUI CUSTOMIZATION
+   ================================ */
+
+.lil-gui {
+  --background-color: var(--glass-bg) !important;
+  --text-color: var(--text-primary) !important;
+  --title-background-color: rgba(0, 170, 255, 0.15) !important;
+  --title-text-color: var(--accent-primary) !important;
+  --widget-color: rgba(255, 255, 255, 0.15) !important;
+  --hover-color: rgba(0, 170, 255, 0.25) !important;
+  --focus-color: var(--accent-primary) !important;
+  --number-color: var(--accent-primary) !important;
+  --string-color: var(--text-primary) !important;
+  --font-size: var(--font-size-base) !important;
+  --input-font-size: var(--font-size-small) !important;
+  --font-family: var(--font-family) !important;
+  --font-family-mono: 'Roboto Mono', monospace !important;
+  --padding: var(--padding-standard) !important;
+  --spacing: var(--padding-small) !important;
+  --widget-height: 24px !important;
+  --title-height: 32px !important;
+  --name-width: 50% !important;
+  --slider-knob-width: 3px !important;
+  --slider-input-width: 30% !important;
+  --color-input-width: 70% !important;
+  --slider-input-min-width: 50px !important;
+  --color-input-min-width: 70px !important;
+  --folder-indent: var(--padding-standard) !important;
+  --widget-padding: 0 0 0 6px !important;
+  --widget-border-radius: var(--border-radius) !important;
+  --checkbox-size: 18px !important;
+  --scrollbar-width: 6px !important;
+  border-radius: var(--border-radius-large) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow-medium) !important;
+  transition: all 0.3s ease !important;
+}
+
+.lil-gui:hover {
+  box-shadow: var(--shadow-large) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.lil-gui .title {
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  font-size: 13px !important;
+  border-bottom: 2px solid var(--accent-primary) !important;
+}
+
+.lil-gui button {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: var(--border-radius) !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  text-transform: uppercase !important;
+  font-size: 11px !important;
+  letter-spacing: 0.5px !important;
+}
+
+.lil-gui button:hover {
+  background: rgba(0, 170, 255, 0.15) !important;
+  border-color: rgba(0, 170, 255, 0.4) !important;
+  color: var(--accent-primary) !important;
+  box-shadow: 0 0 8px rgba(0, 170, 255, 0.2) !important;
+  transform: translateY(-1px) !important;
+}
+
+.lil-gui button:active {
+  transform: translateY(0) !important;
+  box-shadow: none !important;
+}
+
+.lil-gui .controller.option {
+  border-radius: var(--border-radius) !important;
+}
+
+.lil-gui .controller:hover .widget {
+  background-color: rgba(0, 170, 255, 0.2) !important;
+}
+
+/* ================================
+   LOADING SPINNER
+   ================================ */
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  z-index: 10000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.loading-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top: 4px solid var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  margin-top: 20px;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-large);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ================================
+   RESPONSIVE DESIGN
+   ================================ */
+
+@media (max-width: 1200px) {
+  .dashboard {
+    min-width: 280px;
+    max-width: 350px;
+    font-size: 13px;
+  }
+  
+  .height-legend {
+    width: 75px;
+    font-size: 11px;
+  }
+  
+  .lil-gui {
+    max-width: 300px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .upload-button {
+    top: 10px;
+    left: 10px;
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+  
+  .dashboard {
+    bottom: 10px;
+    left: 10px;
+    min-width: 250px;
+    max-width: 300px;
+    padding: 12px;
+  }
+  
+  .dashboard h3 {
+    font-size: 15px;
+  }
+  
+  .dashboard h4 {
+    font-size: 12px;
+  }
+  
+  .height-legend {
+    bottom: 10px;
+    right: 10px;
+    width: 70px;
+    padding: 10px;
+  }
+  
+  .legend-scale {
+    height: 150px;
+  }
+  
+  .histogram {
+    height: 100px;
+  }
+  
+  .lil-gui {
+    top: 10px !important;
+    right: 10px !important;
+    max-width: 250px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard {
+    min-width: 220px;
+    max-width: 250px;
+    padding: 10px;
+    font-size: 12px;
+  }
+  
+  .dashboard h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  
+  .stat-row {
+    padding: 5px 0;
+  }
+  
+  .height-legend {
+    width: 60px;
+    padding: 8px;
+  }
+  
+  .legend-gradient {
+    width: 24px;
+  }
+  
+  .legend-scale {
+    height: 120px;
+  }
+  
+  .histogram {
+    height: 80px;
+  }
+  
+  .upload-button {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}
+
+/* Prevent overlay on small screens */
+@media (max-width: 768px) {
+  .dashboard,
+  .height-legend {
+    pointer-events: auto;
+  }
+  
+  /* Stack dashboard and legend vertically on very small screens */
+  @media (max-height: 600px) {
+    .dashboard {
+      max-height: 40vh;
+      overflow-y: auto;
+    }
+  }
 }

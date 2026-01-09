@@ -1,5 +1,5 @@
 /**
- * PDF-rapport generering - Profesjonell kart-basert rapport
+ * PDF report generation - Professional map-based report
  */
 
 import { jsPDF } from 'jspdf';
@@ -12,11 +12,11 @@ const MARGIN = 20;
 const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
 
 /**
- * Genererer og laster ned PDF-rapport
+ * Generates and downloads PDF report
  */
 export async function generatePDFReport(reportData, renderer, stats) {
   try {
-    console.log('Starter PDF-generering...');
+    console.log('Starting PDF generation...');
     
     const pdf = new jsPDF('p', 'mm', 'a4');
     
@@ -34,17 +34,17 @@ export async function generatePDFReport(reportData, renderer, stats) {
     const filename = `Rapport_${(reportData.projectName || 'Punktsky').replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     pdf.save(filename);
     
-    console.log('PDF generert:', filename);
+    console.log('PDF generated:', filename);
     return true;
-    
+
   } catch (error) {
-    console.error('Feil ved PDF-generering:', error);
+    console.error('Error in PDF generation:', error);
     throw error;
   }
 }
 
 /**
- * Forside
+ * Cover page
  */
 function createCoverPage(pdf, reportData) {
   // Header
@@ -77,17 +77,17 @@ function createCoverPage(pdf, reportData) {
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(11);
   
-  const date = new Date().toLocaleDateString('no-NO', { 
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+  const date = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
-  
-  pdf.text(`Generert: ${date}`, MARGIN + 10, yPos + 28);
-  pdf.text(`Koordinatsystem: ${reportData.datum || ''}`, MARGIN + 10, yPos + 38);
-  pdf.text(`Projeksjon: ${reportData.projection || ''}`, MARGIN + 10, yPos + 48);
+
+  pdf.text(`Generated: ${date}`, MARGIN + 10, yPos + 28);
+  pdf.text(`Coordinate system: ${reportData.datum || ''}`, MARGIN + 10, yPos + 38);
+  pdf.text(`Projection: ${reportData.projection || ''}`, MARGIN + 10, yPos + 48);
 }
 
 /**
- * Kart- og dataside
+ * Map and data page
  */
 async function createMapPage(pdf, reportData) {
   let yPos = 25;
@@ -102,17 +102,17 @@ async function createMapPage(pdf, reportData) {
   
   pdf.setTextColor(50, 50, 50);
   
-  // Metadata-tabell
+  // Metadata table
   yPos = drawSectionHeader(pdf, 'Metadata', yPos);
   const metaData = [
-    ['Koordinatsystem', reportData.datum || 'ED 50'],
-    ['Projeksjon', reportData.projection || 'UTM 32N'],
-    ['Beskrivelse', reportData.description || '-']
+    ['Coordinate system', reportData.datum || 'ED 50'],
+    ['Projection', reportData.projection || 'UTM 32N'],
+    ['Description', reportData.description || '-']
   ];
   yPos = drawTable(pdf, metaData, yPos) + 8;
   
-  // Kartvisning
-  yPos = drawSectionHeader(pdf, 'Topp-visning (Ortografisk)', yPos);
+  // Map visualization
+  yPos = drawSectionHeader(pdf, 'Top View (Orthographic)', yPos);
   
   try {
     const mapResult = await viewer.generateMapImage(2048, reportData.resolution);
@@ -143,11 +143,11 @@ async function createMapPage(pdf, reportData) {
       const legendDataUrl = createLegend(mapResult.minZ, mapResult.maxZ);
       pdf.addImage(legendDataUrl, 'PNG', legendX, legendY, legendWidth, legendHeight);
       
-      // Skala-info (plasseres under X-akse label)
+      // Scale info (placed under X-axis label)
       yPos = imgY + imgSize + 18;
       pdf.setFontSize(8);
       pdf.setTextColor(128, 128, 128);
-      pdf.text(`Utstrekning: ${mapResult.size.x.toFixed(1)} × ${mapResult.size.y.toFixed(1)} m | Rutenett: ${mapResult.gridCellSize} m`, PAGE_WIDTH / 2, yPos, { align: 'center' });
+      pdf.text(`Extent: ${mapResult.size.x.toFixed(1)} × ${mapResult.size.y.toFixed(1)} m | Grid: ${mapResult.gridCellSize} m`, PAGE_WIDTH / 2, yPos, { align: 'center' });
       
       yPos += 8;
     }
@@ -158,20 +158,20 @@ async function createMapPage(pdf, reportData) {
     yPos += 40;
   }
   
-  // Statistikk
+  // Statistics
   if (yPos > PAGE_HEIGHT - 70) {
     pdf.addPage();
     yPos = MARGIN;
   }
-  
-  yPos = drawSectionHeader(pdf, 'Statistikk', yPos);
+
+  yPos = drawSectionHeader(pdf, 'Statistics', yPos);
   const statsData = [
-    ['Antall punkter', reportData.pointCount.toLocaleString('nb-NO')],
-    ['Punktoppløsning', `${reportData.resolution.toFixed(3)} m`],
-    ['Høydeområde (Z)', `${reportData.minZ.toFixed(2)} til ${reportData.maxZ.toFixed(2)} m`],
-    ['Høydespenn', `${(reportData.maxZ - reportData.minZ).toFixed(2)} m`],
-    ['Utstrekning X', `${reportData.areaX.toFixed(2)} m`],
-    ['Utstrekning Y', `${reportData.areaY.toFixed(2)} m`]
+    ['Number of points', reportData.pointCount.toLocaleString('nb-NO')],
+    ['Point resolution', `${reportData.resolution.toFixed(3)} m`],
+    ['Height range (Z)', `${reportData.minZ.toFixed(2)} to ${reportData.maxZ.toFixed(2)} m`],
+    ['Height span', `${(reportData.maxZ - reportData.minZ).toFixed(2)} m`],
+    ['Extent X', `${reportData.areaX.toFixed(2)} m`],
+    ['Extent Y', `${reportData.areaY.toFixed(2)} m`]
   ];
   drawTable(pdf, statsData, yPos);
 }
@@ -199,9 +199,9 @@ function drawAxisLabels(pdf, imgX, imgY, imgSize, bounds, gridCellSize, gridCent
   
   pdf.setFontSize(7);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('X (Øst) [m]', imgX + imgSize / 2, imgY + imgSize + 10, { align: 'center' });
-  
-  // Y-akse (venstre)
+  pdf.text('X (East) [m]', imgX + imgSize / 2, imgY + imgSize + 10, { align: 'center' });
+
+  // Y-axis (left)
   pdf.setFontSize(6);
   pdf.setFont('helvetica', 'bold');
   const firstTickY = gridCenter.y + Math.ceil((bounds.minY - gridCenter.y) / tickInterval) * tickInterval;
@@ -211,18 +211,18 @@ function drawAxisLabels(pdf, imgX, imgY, imgSize, bounds, gridCellSize, gridCent
     pdf.line(imgX - 1.5, yPos, imgX, yPos);
     pdf.text(formatCoord(yVal), imgX - 2, yPos + 1, { align: 'right' });
   }
-  
+
   pdf.setFontSize(7);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('Y (Nord) [m]', MARGIN + 3, imgY + imgSize / 2, { angle: 90, align: 'center' });
+  pdf.text('Y (North) [m]', MARGIN + 3, imgY + imgSize / 2, { angle: 90, align: 'center' });
 }
 
 /**
- * Formaterer koordinat
+ * Formats coordinate
  */
 function formatCoord(val) {
   if (Math.abs(val) >= 10000) {
-    return Math.round(val).toLocaleString('nb-NO');
+    return Math.round(val).toLocaleString('en-US');
   }
   return val.toFixed(1);
 }
@@ -278,8 +278,8 @@ function addFooter(pdf) {
 }
 
 /**
- * Oppretter fargeforklaring (legend) for Z-verdier
- * Returnerer en DataURL med gradient og labels
+ * Creates color legend for Z-values
+ * Returns a DataURL with gradient and labels
  */
 function createLegend(minZ, maxZ) {
   // Opprett midlertidig canvas
@@ -336,11 +336,11 @@ function createLegend(minZ, maxZ) {
   ctx.textAlign = 'right';
   ctx.fillText(`${maxZ.toFixed(1)} m`, barX + barWidth, barY + barHeight + 14);
   
-  // Tittel
+  // Title
   ctx.fillStyle = '#333';
   ctx.font = 'bold 10px Arial';
   ctx.textAlign = 'right';
-  ctx.fillText('Dybde (Z)', canvas.width - 10, barY + barHeight / 2 + 4);
+  ctx.fillText('Depth (Z)', canvas.width - 10, barY + barHeight / 2 + 4);
   
   return canvas.toDataURL('image/png');
 }

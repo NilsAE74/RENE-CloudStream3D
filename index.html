@@ -9,10 +9,20 @@
   </head>
   <body>
     <input type="file" id="fileInput" accept=".txt,.xyz,.pcd,.ply" />
-    <label for="fileInput" class="upload-button">Last opp punktsky</label>
-    <div id="dashboard" class="dashboard">
-      <p class="no-data">Last opp en punktsky for å se statistikk</p>
+    <label for="fileInput" class="upload-button">Upload point cloud</label>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading...</div>
     </div>
+    
+    <!-- Dashboard Panel -->
+    <div id="dashboard" class="dashboard">
+      <p class="no-data">Upload a point cloud to see statistics</p>
+    </div>
+    
+    <!-- Height Legend Panel -->
     <div id="height-legend" class="height-legend" style="display: none;">
       <div class="legend-title">Elevation (Z)</div>
       <div class="legend-scale">
@@ -24,6 +34,7 @@
         </div>
       </div>
     </div>
+    
     <script type="module" src="/main.js"></script>
   </body>
 </html>

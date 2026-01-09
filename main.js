@@ -32,14 +32,14 @@ transformControls.addEventListener('dragging-changed', (event) => {
   controls.enabled = !event.value;
 });
 
-// Oppdater box position i GUI når den flyttes manuelt
+// Update box position in GUI when moved manually
 transformControls.addEventListener('change', () => {
   ui.boxSettings.x = selectionBox.position.x;
   ui.boxSettings.y = selectionBox.position.y;
   ui.boxSettings.z = selectionBox.position.z;
   ui.updateDisplay();
-  
-  // Oppdater seleksjon dynamisk mens boksen flyttes (uten alert)
+
+  // Update selection dynamically while box moves (without alert)
   if (ui.boxSettings.visible && viewer.getPointCloud()) {
     selection.selectPointsInBox(viewer.getPointCloud(), ui.boxSettings, false);
   }
@@ -63,13 +63,13 @@ measurementTool.completeMeasurement = function(startPoint, endPoint) {
   const measurement = originalCompleteMeasurement(startPoint, endPoint);
   if (measurement) {
     // Log measurement data to console
-    console.log('📏 Måling fullført:');
+    console.log('📏 Measurement completed:');
     console.log(`  Start: (${measurement.startOriginal.x.toFixed(2)}, ${measurement.startOriginal.y.toFixed(2)}, ${measurement.startOriginal.z.toFixed(2)})`);
-    console.log(`  Slutt: (${measurement.endOriginal.x.toFixed(2)}, ${measurement.endOriginal.y.toFixed(2)}, ${measurement.endOriginal.z.toFixed(2)})`);
+    console.log(`  End: (${measurement.endOriginal.x.toFixed(2)}, ${measurement.endOriginal.y.toFixed(2)}, ${measurement.endOriginal.z.toFixed(2)})`);
     console.log(`  ΔX: ${measurement.deltaX.toFixed(2)} m, ΔY: ${measurement.deltaY.toFixed(2)} m, ΔZ: ${measurement.deltaZ.toFixed(2)} m`);
-    console.log(`  Total avstand: ${measurement.distance3D.toFixed(2)} m`);
+    console.log(`  Total distance: ${measurement.distance3D.toFixed(2)} m`);
     
-    stats.showDashboardMessage(`✓ Måling fullført: ${measurement.distance3D.toFixed(2)} m`, 'info');
+    stats.showDashboardMessage(`✓ Measurement completed: ${measurement.distance3D.toFixed(2)} m`, 'info');
   }
   return measurement;
 };
@@ -119,16 +119,16 @@ async function loadDefaultCloud() {
     viewer.setCoordinateOffset(offset.x, offset.y, offset.z);
     measurementTool.setCoordinateOffset(offset);
     
-    console.log('📏 Måleverktøy klar for default punktsky');
-    console.log(`   Koordinat-offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
+    console.log('📏 Measurement tool ready for default point cloud');
+    console.log(`   Coordinate offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
     
-    // Oppdater dashboard med statistikk (KUN TERRENG, ikke logo)
-    const resolution = stats.updateDashboard(terrainData.count, terrainData.bounds, terrainData.positions, 'Default Terreng');
-    
-    // Oppdater legend med Z-verdier (KUN TERRENG, ikke logo)
+    // Update dashboard with statistics (TERRAIN ONLY, not logo)
+    const resolution = stats.updateDashboard(terrainData.count, terrainData.bounds, terrainData.positions, 'Default Terrain');
+
+    // Update legend with Z-values (TERRAIN ONLY, not logo)
     ui.updateLegend(terrainData.bounds.minZ, terrainData.bounds.maxZ);
-    
-    // Lagre statistikk for rapport (KUN TERRENG)
+
+    // Save statistics for report (TERRAIN ONLY)
     ui.updateStats({
       pointCount: terrainData.count,
       minZ: terrainData.bounds.minZ,
@@ -138,132 +138,143 @@ async function loadDefaultCloud() {
       resolution: resolution
     });
     
-    // Opprett punktsky og legg til i scenen
-    // useHeightColor = true aktiverer vertex colors (bruker fargene fra både terreng-gradient og logo-piksler)
+    // Create point cloud and add to scene
+    // useHeightColor = true activates vertex colors (uses colors from both terrain gradient and logo pixels)
     const pointCloud = viewer.addPointCloud(
       centeredPositions,
       combinedColors,
       ui.settings.pointSize,
-      true, // Bruk vertex colors: terreng får gradient, logo får sine faktiske farger
+      true, // Use vertex colors: terrain gets gradient, logo gets its actual colors
       ui.settings.pointColor
     );
     
-    // Beregn bounding box og sentrer kamera
+    // Calculate bounding box and center camera
     const geometry = pointCloud.geometry;
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
-    
+
     const { center, size, maxDim } = viewer.centerCameraOnBounds(
       geometry.boundingBox,
       geometry.boundingSphere
     );
-    
-    // Respekter GUI-innstillingene for aksekors
+
+    // Respect GUI settings for axes
     viewer.setAxesVisible(ui.settings.showAxes);
-    
-    // Opprett koordinatgrid med originale koordinater (men hold det skjult som standard)
+
+    // Create coordinate grid with original coordinates (but keep it hidden by default)
     grid.createSurveyGrid(geometry.boundingBox, offset, viewer.getScene());
     grid.setGridVisible(ui.settings.showGrid);
-    
-    // Åpne punkt-innstillinger folder
-    ui.openPointFolder();
-    
-    // Oppdater GUI ranges basert på faktiske data
+
+    // Keep all folders closed by default
+    // ui.openPointFolder();
+
+    // Update GUI ranges based on actual data
     ui.updateGUIRanges(combinedBounds);
-    
-    // Skjul selection box som standard
+
+    // Hide selection box by default
     selectionBox.visible = false;
     transformControls.visible = false;
     ui.boxSettings.visible = false;
-    
-    // Posisjonér selection box
+
+    // Position selection box
     selection.positionSelectionBox(center, size, ui.boxSettings);
     
-    // Oppdater GUI
+    // Update GUI
     ui.updateDisplay();
-    
-    // Nullstill originalColors
+
+    // Reset originalColors
     selection.resetOriginalColors();
-    
-    // Marker at dette er default-skyen og lagre velocity-data for eksplosjon
+
+    // Mark that this is the default cloud and save velocity data for explosion
     viewer.setIsDefaultCloud(true, combinedVelocities);
-    
-    console.log('Punktsky med logo lastet!');
-    console.log('📏 Tips: Aktiver måleverktøyet i GUI for å måle avstander!');
-    stats.showDashboardMessage(`✓ Terreng lastet med ${terrainData.count.toLocaleString('nb-NO')} punkter (+ Logo: ${logoData.count.toLocaleString('nb-NO')} punkter)`, 'info');
-    
-    // Vis kort info om måleverktøy
+
+    console.log('Point cloud with logo loaded!');
+    console.log('📏 Tip: Activate the measurement tool in GUI to measure distances!');
+    stats.showDashboardMessage(`✓ Terrain loaded with ${terrainData.count.toLocaleString('nb-NO')} points (+ Logo: ${logoData.count.toLocaleString('nb-NO')} points)`, 'info');
+
+    // Show brief info about measurement tool
     setTimeout(() => {
-      stats.showDashboardMessage('💡 Måleverktøyet er klart! Aktiver det i GUI (📏 Måleverktøy)', 'info');
+      stats.showDashboardMessage('💡 The measurement tool is ready! Activate it in GUI (📏 Measurement Tool)', 'info');
     }, 3000);
     
   } catch (error) {
-    console.error('Feil ved lasting av default punktsky:', error);
-    stats.showDashboardMessage(`Feil ved lasting av default punktsky: ${error.message}`, 'error');
+    console.error('Error loading default point cloud:', error);
+    stats.showDashboardMessage(`Error loading default point cloud: ${error.message}`, 'error');
   }
 }
 
-// Last default punktsky ved oppstart
-loadDefaultCloud();
+// Load default point cloud at startup (with spinner)
+stats.showLoadingSpinner('Loading default terrain...');
+loadDefaultCloud().then(() => {
+  stats.hideLoadingSpinner();
+}).catch((error) => {
+  stats.hideLoadingSpinner();
+  console.error('Feil ved lasting av default punktsky:', error);
+});
 
-// Håndter fil-opplasting
+// Handle file upload
 const fileInput = document.getElementById('fileInput');
 
-// Funksjon for å laste fil (brukes av både file input og drag-drop)
+// Function to load file (used by both file input and drag-drop)
 function loadFile(file) {
   if (!file) {
-    stats.showDashboardMessage('Ingen fil valgt', 'error');
+    stats.showDashboardMessage('No file selected', 'error');
     return;
   }
-  
+
   const reader = new FileReader();
-  
+
   reader.onload = (e) => {
     const content = e.target.result;
-    
-    console.log('=== FIL LASTET OPP ===');
-    console.log(`Filnavn: ${file.name}`);
-    console.log(`Størrelse: ${(file.size / 1024).toFixed(2)} KB`);
-    
-    // Funksjon som faktisk laster den nye filen
+
+    console.log('=== FILE UPLOADED ===');
+    console.log(`Filename: ${file.name}`);
+    console.log(`Size: ${(file.size / 1024).toFixed(2)} KB`);
+
+    // Function that actually loads the new file
     const processNewFile = () => {
     try {
-      console.log('Starter parsing av fil...');
+      // Show loading spinner
+      stats.showLoadingSpinner(`Parsing ${file.name}...`);
       
-      // Parse XYZ-filen
+      console.log('Starting file parsing...');
+
+      // Parse XYZ file (use setTimeout to allow UI to update)
+      setTimeout(() => {
+      try {
       const { positions, colors, count, bounds } = parser.parseXYZFile(content);
-      
+
       if (count === 0) {
-        stats.showDashboardMessage('Ingen gyldige punkter funnet i filen!', 'error');
+        stats.showDashboardMessage('No valid points found in file!', 'error');
         return;
       }
-      
-      console.log('Parsing fullført. Oppretter punktsky...');
-      console.log(`Positions array lengde: ${positions.length}`);
-      console.log(`Colors array lengde: ${colors.length}`);
-      
-      // Sentrer posisjonene rundt origo for bedre WebGL-presisjon
+
+      console.log('Parsing completed. Creating point cloud...');
+      console.log(`Positions array length: ${positions.length}`);
+      console.log(`Colors array length: ${colors.length}`);
+
+      // Center positions around origin for better WebGL precision
       const { centeredPositions, offset } = parser.centerPositions(positions, bounds);
-      
-      // Lagre offset i selection-modulen for korrekt eksport
+
+      // Save offset in selection module for correct export
       selection.setCoordinateOffset(offset.x, offset.y, offset.z);
-      
-      // Lagre offset i viewer-modulen for inversjon
+
+      // Save offset in viewer module for inversion
       viewer.setCoordinateOffset(offset.x, offset.y, offset.z);
-      
-      // Lagre offset i measurement tool
+
+      // Save offset in measurement tool
       measurementTool.setCoordinateOffset(offset);
+
+      console.log('📏 Measurement tool updated for new point cloud');
+      console.log(`   Coordinate offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
       
-      console.log('📏 Måleverktøy oppdatert for ny punktsky');
-      console.log(`   Koordinat-offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
-      
-      // Oppdater dashboard med statistikk (bruker ORIGINALE posisjoner for histogram)
+      // Update dashboard with statistics (using ORIGINAL positions for histogram)
       const resolution = stats.updateDashboard(count, bounds, positions, file.name);
-      
-      // Oppdater legend med Z-verdier
+
+      // Update legend with Z-values
       ui.updateLegend(bounds.minZ, bounds.maxZ);
-      
-      // Lagre statistikk for rapport
+
+      // Save statistics for report
       ui.updateStats({
         pointCount: count,
         minZ: bounds.minZ,
@@ -272,8 +283,8 @@ function loadFile(file) {
         areaY: bounds.maxY - bounds.minY,
         resolution: resolution
       });
-      
-      // Opprett punktsky og legg til i scenen (bruker SENTRERTE posisjoner for rendering)
+
+      // Create point cloud and add to scene (using CENTERED positions for rendering)
       const pointCloud = viewer.addPointCloud(
         centeredPositions,
         colors,
@@ -281,70 +292,83 @@ function loadFile(file) {
         ui.settings.useHeightColor,
         ui.settings.pointColor
       );
-      
-      // Beregn bounding box og sentrer kamera
+
+      // Calculate bounding box and center camera
       const geometry = pointCloud.geometry;
       geometry.computeBoundingBox();
       geometry.computeBoundingSphere();
-      
+
       const { center, size, maxDim } = viewer.centerCameraOnBounds(
         geometry.boundingBox,
         geometry.boundingSphere
       );
 
-      // Respekter GUI-innstillingene for aksekors
+      // Respect GUI settings for axes
       viewer.setAxesVisible(ui.settings.showAxes);
 
-      // Opprett koordinatgrid med originale koordinater (men hold det skjult som standard)
+      // Create coordinate grid with original coordinates (but keep it hidden by default)
       grid.createSurveyGrid(geometry.boundingBox, offset, viewer.getScene());
       grid.setGridVisible(ui.settings.showGrid);
 
-      // Åpne punkt-innstillinger folder
-      ui.openPointFolder();
-      
-      // Oppdater GUI ranges basert på faktiske data
+      // Keep all folders closed by default
+      // ui.openPointFolder();
+
+      // Update GUI ranges based on actual data
       ui.updateGUIRanges(bounds);
-      
-      // Skjul selection box som standard
+
+      // Hide selection box by default
       selectionBox.visible = false;
       transformControls.visible = false;
       ui.boxSettings.visible = false;
       
-      // Posisjonér selection box
+      // Position selection box
       selection.positionSelectionBox(center, size, ui.boxSettings);
-      
-      // Oppdater GUI
+
+      // Update GUI
       ui.updateDisplay();
-      
-      // Nullstill originalColors når ny fil lastes
+
+      // Reset originalColors when new file is loaded
       selection.resetOriginalColors();
-      
-      // Marker at dette ikke er default-skyen lenger
+
+      // Mark that this is no longer the default cloud
       viewer.setIsDefaultCloud(false, null);
+
+      // Hide loading spinner
+      stats.hideLoadingSpinner();
+
+      console.log('Point cloud created!');
+      stats.showDashboardMessage(`✓ Point cloud loaded! ${count.toLocaleString('nb-NO')} points visualized.`, 'info');
       
-      console.log('Punktsky opprettet!');
-      stats.showDashboardMessage(`✓ Punktsky lastet! ${count.toLocaleString('nb-NO')} punkter visualisert.`, 'info');
-      
+      } catch (error) {
+        stats.hideLoadingSpinner();
+        console.error('Error parsing file:', error);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        stats.showDashboardMessage(`Error parsing: ${error.message}`, 'error');
+      }
+      }, 100); // Small delay to allow UI to update
+
     } catch (error) {
-      console.error('Feil ved parsing av fil:', error);
+      stats.hideLoadingSpinner();
+      console.error('Error parsing file:', error);
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
-      stats.showDashboardMessage(`Feil ved parsing: ${error.message}`, 'error');
+      stats.showDashboardMessage(`Error parsing: ${error.message}`, 'error');
       }
     };
-    
-    // Sjekk om vi skal trigge eksplosjon
+
+    // Check if we should trigger explosion
     if (viewer.getIsDefaultCloud()) {
-      console.log('🎆 Default-sky detektert! Starter eksplosjon før lasting av ny fil...');
-      stats.showDashboardMessage('🎆 Eksploderer logo...', 'info');
-      
-      // Trigger eksplosjon, og last ny fil når animasjonen er ferdig
+      console.log('🎆 Default cloud detected! Starting explosion before loading new file...');
+      stats.showDashboardMessage('🎆 Exploding logo...', 'info');
+
+      // Trigger explosion, and load new file when animation is finished
       viewer.animateExplosion(() => {
-        console.log('Eksplosjon ferdig, laster ny fil...');
+        console.log('Explosion finished, loading new file...');
         processNewFile();
       });
     } else {
-      // Ikke default-sky, last filen direkte
+      // Not default cloud, load file directly
       processNewFile();
     }
   };
@@ -358,16 +382,16 @@ function loadFile(file) {
   reader.readAsText(file);
 }
 
-// Event listener for fil-input
+// Event listener for file input
 fileInput.addEventListener('change', async (event) => {
   const file = event.target.files[0];
   loadFile(file);
 });
 
-// Drag and Drop funksjonalitet
+// Drag and Drop functionality
 const body = document.body;
 
-// Hindre default drag behavior
+// Prevent default drag behavior
 body.addEventListener('dragover', (e) => {
   e.preventDefault();
   e.stopPropagation();
@@ -380,29 +404,29 @@ body.addEventListener('dragleave', (e) => {
   body.classList.remove('dragging');
 });
 
-// Håndter drop
+// Handle drop
 body.addEventListener('drop', (e) => {
   e.preventDefault();
   e.stopPropagation();
   body.classList.remove('dragging');
-  
+
   const files = e.dataTransfer.files;
   if (files.length > 0) {
     const file = files[0];
-    
-    // Sjekk filtype
+
+    // Check file type
     const validExtensions = ['.txt', '.xyz', '.pcd', '.ply'];
     const fileName = file.name.toLowerCase();
     const isValid = validExtensions.some(ext => fileName.endsWith(ext));
-    
+
     if (isValid) {
       loadFile(file);
     } else {
-      stats.showDashboardMessage('Ugyldig filtype. Støttede formater: .txt, .xyz, .pcd, .ply', 'error');
+      stats.showDashboardMessage('Invalid file type. Supported formats: .txt, .xyz, .pcd, .ply', 'error');
     }
   }
 });
 
-console.log('3D Punktsky Visualisering - Klar!');
-console.log('Last opp en .xyz fil for å komme i gang.');
-console.log('Du kan også dra og slippe filer direkte på siden!');
+console.log('3D Point Cloud Visualization - Ready!');
+console.log('Upload a .xyz file to get started.');
+console.log('You can also drag and drop files directly on the page!');

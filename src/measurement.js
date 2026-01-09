@@ -63,7 +63,7 @@ export class MeasurementTool {
       // Legg til event listeners
       this.rendererElement.addEventListener('click', this.onMouseClickBound);
       this.rendererElement.addEventListener('mousemove', this.onMouseMoveBound);
-      console.log('📏 Måleverktøy aktivert');
+      console.log('📏 Measurement tool activated');
     } else {
       // Fjern event listeners
       this.rendererElement.removeEventListener('click', this.onMouseClickBound);
@@ -71,7 +71,7 @@ export class MeasurementTool {
       
       // Fjern midlertidig geometri
       this.clearTemporaryGeometry();
-      console.log('📏 Måleverktøy deaktivert');
+      console.log('📏 Measurement tool deactivated');
     }
   }
   
@@ -84,7 +84,7 @@ export class MeasurementTool {
     const intersect = this.getIntersectedPoint(event);
     
     if (!intersect) {
-      console.log('Ingen punkt truffet');
+      console.log('No point hit');
       return;
     }
     
@@ -100,7 +100,7 @@ export class MeasurementTool {
         y: this.startPoint.y + this.coordinateOffset.y,
         z: this.startPoint.z + this.coordinateOffset.z
       };
-      console.log('✓ Startpunkt satt (originale koordinater):', 
+      console.log('✓ Start point set (original coordinates):',
         `X: ${startOrig.x.toFixed(2)}, Y: ${startOrig.y.toFixed(2)}, Z: ${startOrig.z.toFixed(2)}`);
     } else {
       // Andre klikk: Lås sluttpunkt og fullfør målingen
@@ -215,7 +215,7 @@ export class MeasurementTool {
       z: endPoint.z + this.coordinateOffset.z
     };
     
-    console.log('📏 Måling fullført:');
+    console.log('📏 Measurement completed:');
     console.log(`  Start: (${startOriginal.x.toFixed(2)}, ${startOriginal.y.toFixed(2)}, ${startOriginal.z.toFixed(2)})`);
     console.log(`  Slutt: (${endOriginal.x.toFixed(2)}, ${endOriginal.y.toFixed(2)}, ${endOriginal.z.toFixed(2)})`);
     console.log(`  ΔX: ${deltaX.toFixed(2)} m, ΔY: ${deltaY.toFixed(2)} m, ΔZ: ${deltaZ.toFixed(2)} m`);
@@ -281,7 +281,7 @@ export class MeasurementTool {
     // Ikke fjern startMarker her, den blir en del av målingen
     this.startMarker = null;
     
-    console.log(`✓ Måling lagret (totalt ${this.measurements.length} målinger)`);
+    console.log(`✓ Measurement saved (total ${this.measurements.length} measurements)`);
     
     // Returner målingen for dashboard-oppdatering
     return measurement;
@@ -329,7 +329,7 @@ export class MeasurementTool {
     this.isFirstPoint = true;
     this.startPoint = null;
     
-    console.log('✓ Alle målinger slettet');
+    console.log('✓ All measurements deleted');
   }
   
   /**
