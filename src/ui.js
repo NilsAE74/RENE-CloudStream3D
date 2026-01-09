@@ -345,6 +345,13 @@ function handleInvertZ() {
   // Update legend with new Z-values
   updateLegend(originalMinZ, originalMaxZ);
 
+  // Update statistics for report with new Z-values
+  if (currentStats) {
+    currentStats.minZ = originalMinZ;
+    currentStats.maxZ = originalMaxZ;
+    console.log('Statistics updated for PDF export with inverted Z-values');
+  }
+
   stats.showDashboardMessage('✓ Z-axis inverted!', 'info');
 
   // Update selection box if active

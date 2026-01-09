@@ -445,3 +445,89 @@ Gjør følgende endringer:
    - Sørg for at UI-elementene ikke overlapper hverandre på mindre skjermer.
 
 Målet er at appen skal føles som et ferdig produkt med en gjennomtenkt visuell profil. Oppdater style.css, ui.js og alle filer som håndterer visning av informasjon.
+
+
+Jeg vil oppdatere histogrammet slik at søylene bruker de samme fargene som den høydebaserte fargeleggingen (elevation legend).
+
+Gjør følgende endringer:
+
+1. **Synkroniser fargelogikk:**
+   - Sørg for at funksjonen som beregner farge basert på Z-verdi (f.eks. `getColorForZ(z)`) er tilgjengelig for histogram-modulen.
+   - Bruk de nåværende `colorMinZ` og `colorMaxZ` (fra fargetuningen) som grenser for fargeleggingen i histogrammet.
+
+2. **Oppdater Histogram-rendering:**
+   - For hver "bin" (søyle) i histogrammet:
+     * Beregn gjennomsnittlig Z-verdi for denne søylen.
+     * Hent tilhørende farge fra fargeskalaen vår.
+     * Sett bakgrunnsfargen på søylen til denne fargen.
+   - Hvis histogrammet er tegnet med Canvas: Oppdater `fillStyle` for hver søyle.
+   - Hvis histogrammet bruker Chart.js eller lignende: Oppdater `backgroundColor`-arrayet i datasettet.
+
+3. **Visuell stil:**
+   - Fjern eventuelle standardfarger eller "borders" på søylene slik at gradienten ser sømløs og ren ut.
+
+Målet er at histogrammet skal fungere som en horisontal versjon av farge-legenden, samtidig som det viser distribusjonen av punkter.
+
+
+
+Jeg vil implementere et snittverktøy (Cross-section / Profile tool) som lar meg se en 2D-profil av punktskyen langs en valgt linje.
+
+Gjør følgende endringer:
+
+1. **Interaksjon for linjevalg (i src/viewer.js):**
+   - Lag en modus "Tegn snittlinje". Brukeren skal klikke to ganger i topp-visning for å definere en start- og sluttlinje (A til B).
+   - Vis denne linjen som en tydelig rød linje i 3D-scenen.
+   - Legg til en slider i GUI for "Snitt-tykkelse" (f.eks. fra 0.1m til 5.0m). Dette bestemmer hvor mange punkter ved siden av linjen som blir med i snittet.
+
+2. **Matematisk filtrering (i src/parser.js):**
+   - Lag en funksjon `getProfilePoints(lineStart, lineEnd, thickness)`.
+   - Denne skal:
+     a. Definere et vertikalt plan som går gjennom linjen.
+     b. Finne alle punkter som er innenfor `thickness / 2` avstand fra dette planet.
+     c. For hvert punkt: Beregn avstanden fra `lineStart` (X-akse i grafen) og behold den originale Z-verdien (Y-akse i grafen).
+
+3. **Profil-vindu (Ny UI-komponent):**
+   - Opprett et nytt flytende vindu/panel nederst på skjermen: "Profilvisning".
+   - Bruk et `<canvas>`-element eller Chart.js for å plotte punktene som en 2D-graf (Avstand vs. Høyde).
+   - **Fargekoding:** Bruk de samme fargene på punktene i grafen som i 3D-visningen (høydebasert farge).
+   - Legg til støtte for å zoome og panorere i selve 2D-grafen.
+
+4. **Eksport (i src/report.js):**
+   - Inkluder 2D-profilen som et eget bilde i PDF-rapporten hvis et snitt er aktivt.
+
+5. **GUI (i src/ui.js):**
+   - Legg til en ny seksjon "Snittverktøy" med knapper for å:
+     * Aktivere tegning.
+     * Justere tykkelse.
+     * Slette snittet.
+
+Sørg for at verktøyet håndterer store datasett effektivt ved å bare oppdatere profil-grafen når brukeren er ferdig med å flytte på linjen eller tykkelsen.
+
+Jeg har problemer med at profilvisningen (Cross-section) ikke tilpasser seg størrelsen på snittet. Jeg trenger et mer dynamisk GUI som er fleksibelt og profesjonelt.
+
+Gjør følgende endringer i `src/ui.js` og den modulen som håndterer profil-grafen:
+
+1. **Responsivt Panel (Layout):**
+   - Gjør profil-panelet (containeren) **resizable**. Brukeren skal kunne dra i øvre kant av panelet for å endre høyden.
+   - Panelet skal som standard ta opp hele bredden nederst, men ha en `min-height` og en fornuftig `max-height` (f.eks. 40% av skjermen).
+   - Bruk CSS `flexbox` eller `grid` inni panelet slik at grafen automatisk fyller all tilgjengelig plass når vinduet endrer størrelse.
+
+2. **Dynamisk Skalering av Akser (Auto-zoom):**
+   - Hver gang et nytt snitt tegnes eller tykkelsen endres, må graf-aksene re-kalkuleres:
+     * **X-aksen:** Skal alltid gå fra 0 til den faktiske lengden av snittlinjen (A til B).
+     * **Y-aksen (Høyde):** Skal automatisk zoome inn på `minZ` og `maxZ` for akkurat de punktene som er valgt i snittet, med ca. 10% "padding" i topp og bunn.
+   - Unngå faste verdier på aksene; de må basere seg på `boundingBox` til de filtrerte profil-punktene.
+
+3. **Aspekt-ratio Kontroll:**
+   - Legg til en toggle i GUI: "Lås aspekt-ratio (1:1)". 
+     * Når denne er PÅ, skal 1 meter på X-aksen være like lang som 1 meter på Y-aksen (viktig for å se reell helning).
+     * Når den er AV, skal grafen strekke seg for å fylle hele vinduet (best for å se små detaljer i et flatt terreng).
+
+4. **Vindustilpasning (Resize Event):**
+   - Legg til en `EventListener` på `window.resize`. Hvis brukeren endrer størrelse på nettleseren, skal profil-grafen tegnes på nytt (resize/redraw) slik at den ikke blir strukket eller uskarp.
+
+5. **Visuell opprydding:**
+   - Legg til en "Lukk"-knapp (X) i øvre høyre hjørne av profil-panelet.
+   - Sørg for at 3D-viewet (canvaset) automatisk krymper eller justerer sin bunn-margin når profil-panelet er åpent, slik at de ikke overlapper og skjuler viktig informasjon (som f.eks. måleverktøy-labels).
+
+Sørg for at overgangen mellom ulike snitt føles rask og at GUI-et flyter sømløst uavhengig av om snittet er 10 meter eller 1000 meter langt.
