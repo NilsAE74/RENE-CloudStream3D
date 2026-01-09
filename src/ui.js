@@ -6,7 +6,7 @@ import * as report from './report.js';
 import * as grid from './grid.js';
 
 let gui;
-let pointFolder, sceneFolder, controlsFolder, boxFolder, measurementFolder;
+let pointFolder, sceneFolder, controlsFolder, boxFolder, measurementFolder, profileFolder;
 let boxControllers = {};
 
 // Settings objekter
@@ -51,6 +51,15 @@ export const measurementSettings = {
   active: false,
   clearAll: null,  // Will be set later
   measurementTool: null  // Reference to MeasurementTool instance
+};
+
+// Profile tool settings
+export const profileSettings = {
+  active: false,
+  thickness: 1.0,
+  drawProfile: null,  // Will be set later
+  clearProfile: null,  // Will be set later
+  profileTool: null  // Reference to profile tool instance
 };
 
 /**
@@ -108,6 +117,9 @@ export function initGUI() {
   
   // Måleverktøy folder
   setupMeasurementGUI();
+  
+  // Profile tool folder
+  setupProfileGUI();
 
   // Event handlers
   bgColorController.onChange((value) => {
@@ -435,7 +447,8 @@ async function handleGenerateReport() {
     await report.generatePDFReport(
       reportData, 
       viewer.getRenderer(),
-      stats
+      stats,
+      profileSettings.profileTool  // Pass profile tool for optional profile export
     );
     
     // Hide loading spinner
@@ -510,4 +523,47 @@ export function setLegendVisible(visible) {
  */
 export function setMeasurementTool(tool) {
   measurementSettings.measurementTool = tool;
+}
+
+/**
+ * Sets up Profile Tool GUI
+ */
+function setupProfileGUI() {
+  profileFolder = gui.addFolder('✂️ Profile Tool');
+
+  // Thickness slider
+  profileFolder.add(profileSettings, 'thickness', 0.1, 5.0, 0.1).name('Section Thickness (m)').onChange((value) => {
+    if (profileSettings.profileTool) {
+      profileSettings.profileTool.updateThickness(value);
+    }
+  });
+
+  // Draw profile button
+  profileSettings.drawProfile = () => {
+    if (profileSettings.profileTool) {
+      profileSettings.active = true;
+      profileSettings.profileTool.startDrawing();
+      stats.showDashboardMessage('✂️ Click twice to define profile line', 'info');
+    }
+  };
+
+  // Clear profile button
+  profileSettings.clearProfile = () => {
+    if (profileSettings.profileTool) {
+      profileSettings.profileTool.clearProfile();
+      profileSettings.active = false;
+      stats.showDashboardMessage('✓ Profile cleared', 'info');
+    }
+  };
+
+  profileFolder.add(profileSettings, 'drawProfile').name('✏️ Draw Profile Line');
+  profileFolder.add(profileSettings, 'clearProfile').name('🗑️ Clear Profile');
+  profileFolder.close();
+}
+
+/**
+ * Sets reference to profile tool
+ */
+export function setProfileTool(tool) {
+  profileSettings.profileTool = tool;
 }

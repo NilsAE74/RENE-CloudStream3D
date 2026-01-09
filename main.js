@@ -10,6 +10,7 @@ import * as selection from './src/selection.js';
 import * as stats from './src/stats.js';
 import * as grid from './src/grid.js';
 import { MeasurementTool } from './src/measurement.js';
+import { ProfileTool } from './src/profile.js';
 
 // Initialiser Three.js viewer
 const { scene, camera, controls } = viewer.initViewer();
@@ -56,6 +57,12 @@ const measurementTool = new MeasurementTool(
 // Sett referanser til measurement tool
 viewer.setMeasurementTool(measurementTool);
 ui.setMeasurementTool(measurementTool);
+
+// Initialiser Profile Tool
+const profileTool = new ProfileTool({ x: 0, y: 0, z: 0 });
+
+// Sett referanse til profile tool
+ui.setProfileTool(profileTool);
 
 // Wrapper for completeMeasurement som også oppdaterer dashboard
 const originalCompleteMeasurement = measurementTool.completeMeasurement.bind(measurementTool);
@@ -118,8 +125,10 @@ async function loadDefaultCloud() {
     selection.setCoordinateOffset(offset.x, offset.y, offset.z);
     viewer.setCoordinateOffset(offset.x, offset.y, offset.z);
     measurementTool.setCoordinateOffset(offset);
+    profileTool.setCoordinateOffset(offset);
     
     console.log('📏 Measurement tool ready for default point cloud');
+    console.log('✂️ Profile tool ready for default point cloud');
     console.log(`   Coordinate offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
     
     // Update dashboard with statistics (TERRAIN ONLY, not logo)
@@ -264,8 +273,12 @@ function loadFile(file) {
 
       // Save offset in measurement tool
       measurementTool.setCoordinateOffset(offset);
+      
+      // Save offset in profile tool
+      profileTool.setCoordinateOffset(offset);
 
       console.log('📏 Measurement tool updated for new point cloud');
+      console.log('✂️ Profile tool updated for new point cloud');
       console.log(`   Coordinate offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
       
       // Update dashboard with statistics (using ORIGINAL positions for histogram)

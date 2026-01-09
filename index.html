@@ -35,6 +35,29 @@
       </div>
     </div>
     
+    <!-- Profile View Panel -->
+    <div id="profile-panel" class="profile-panel" style="display: none;">
+      <div class="profile-resize-handle" id="profile-resize-handle"></div>
+      <div class="profile-header">
+        <div class="profile-title">Profile View</div>
+        <div class="profile-info" id="profile-info"></div>
+        <button id="profile-close" class="profile-close-btn">×</button>
+      </div>
+      <div class="profile-canvas-container">
+        <canvas id="profile-canvas"></canvas>
+      </div>
+      <div class="profile-controls">
+        <button id="profile-zoom-in" class="profile-control-btn">+</button>
+        <button id="profile-zoom-reset" class="profile-control-btn">Reset</button>
+        <button id="profile-zoom-out" class="profile-control-btn">−</button>
+        <div class="profile-control-separator"></div>
+        <label class="profile-aspect-toggle">
+          <input type="checkbox" id="profile-aspect-lock">
+          <span class="profile-aspect-label">Lock 1:1</span>
+        </label>
+      </div>
+    </div>
+    
     <script type="module" src="/main.js"></script>
   </body>
 </html>

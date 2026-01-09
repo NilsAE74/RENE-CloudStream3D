@@ -14,7 +14,7 @@ const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
 /**
  * Generates and downloads PDF report
  */
-export async function generatePDFReport(reportData, renderer, stats) {
+export async function generatePDFReport(reportData, renderer, stats, profileTool = null) {
   try {
     console.log('Starting PDF generation...');
     
@@ -26,6 +26,15 @@ export async function generatePDFReport(reportData, renderer, stats) {
     // === SIDE 2: KART OG DATA ===
     pdf.addPage();
     await createMapPage(pdf, reportData);
+    
+    // === SIDE 3 (optional): PROFILE ===
+    if (profileTool) {
+      const profileState = profileTool.getProfileState();
+      if (profileState.hasProfile) {
+        pdf.addPage();
+        await createProfilePage(pdf, profileTool, reportData);
+      }
+    }
     
     // Footer på alle sider
     addFooter(pdf);
@@ -274,6 +283,64 @@ function addFooter(pdf) {
     pdf.setFontSize(8);
     pdf.setTextColor(150, 150, 150);
     pdf.text(`Side ${i} av ${pages}`, PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
+  }
+}
+
+/**
+ * Profile page
+ */
+async function createProfilePage(pdf, profileTool, reportData) {
+  let yPos = 25;
+  
+  // Header
+  pdf.setFillColor(41, 128, 185);
+  pdf.rect(0, 0, PAGE_WIDTH, 15, 'F');
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Profile View', MARGIN, 10);
+  
+  pdf.setTextColor(50, 50, 50);
+  
+  // Profile info
+  yPos = drawSectionHeader(pdf, 'Cross-Section Profile', yPos);
+  
+  const profileState = profileTool.getProfileState();
+  const profileData = [
+    ['Thickness', `${profileState.thickness.toFixed(2)} m`],
+    ['Number of points', profileState.points ? profileState.points.length.toLocaleString('nb-NO') : '0']
+  ];
+  yPos = drawTable(pdf, profileData, yPos) + 8;
+  
+  // Profile image
+  try {
+    const profileImageUrl = profileTool.getProfileImageDataURL();
+    
+    if (profileImageUrl) {
+      const imgWidth = CONTENT_WIDTH;
+      const imgHeight = imgWidth * 0.4;  // Aspect ratio for profile
+      
+      yPos = drawSectionHeader(pdf, 'Profile Visualization', yPos);
+      
+      // Ramme
+      pdf.setDrawColor(180, 180, 180);
+      pdf.setLineWidth(0.5);
+      pdf.rect(MARGIN, yPos, imgWidth, imgHeight);
+      
+      // Bilde
+      pdf.addImage(profileImageUrl, 'PNG', MARGIN, yPos, imgWidth, imgHeight);
+      
+      yPos += imgHeight + 10;
+      
+      // Description
+      pdf.setFontSize(9);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('2D profile showing elevation (Z) vs. distance along the section line', PAGE_WIDTH / 2, yPos, { align: 'center' });
+    }
+  } catch (error) {
+    console.error('Error adding profile image to PDF:', error);
+    pdf.setFontSize(10);
+    pdf.text('Could not generate profile visualization', MARGIN, yPos + 20);
   }
 }
 
