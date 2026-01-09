@@ -16,7 +16,10 @@ const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
  */
 export async function generatePDFReport(reportData, renderer, stats, profileTool = null) {
   try {
-    console.log('Starting PDF generation...');
+    console.log('=== Starting PDF generation ===');
+    console.log('reportData keys:', Object.keys(reportData));
+    console.log('reportData.positions exists?', !!reportData.positions);
+    console.log('reportData.positions length:', reportData.positions ? reportData.positions.length : 'N/A');
     
     const pdf = new jsPDF('p', 'mm', 'a4');
     
@@ -182,7 +185,56 @@ async function createMapPage(pdf, reportData) {
     ['Extent X', `${reportData.areaX.toFixed(2)} m`],
     ['Extent Y', `${reportData.areaY.toFixed(2)} m`]
   ];
-  drawTable(pdf, statsData, yPos);
+  yPos = drawTable(pdf, statsData, yPos) + 8;
+  
+  // Add histogram
+  console.log('=== HISTOGRAM SECTION ===');
+  console.log('reportData.positions type:', typeof reportData.positions);
+  console.log('reportData.positions exists?', !!reportData.positions);
+  console.log('reportData.positions is array?', Array.isArray(reportData.positions));
+  
+  if (reportData.positions && reportData.positions.length > 0) {
+    console.log('✓ Creating histogram with', reportData.positions.length, 'position values');
+    
+    // Check if we need a new page for the histogram
+    if (yPos > PAGE_HEIGHT - 85) {
+      console.log('Adding new page for histogram');
+      pdf.addPage();
+      yPos = MARGIN;
+    }
+    
+    yPos = drawSectionHeader(pdf, 'Z-Height Distribution', yPos);
+    console.log('Section header drawn at yPos:', yPos);
+    
+    try {
+      console.log('Calling createHistogramImage...');
+      const histogramDataUrl = createHistogramImage(reportData.positions, reportData.minZ, reportData.maxZ);
+      console.log('✓ Histogram image generated, dataUrl length:', histogramDataUrl.length);
+      
+      const histWidth = CONTENT_WIDTH;
+      const histHeight = 60;
+      
+      // Add histogram image
+      console.log('Adding histogram to PDF at position:', MARGIN, yPos);
+      pdf.addImage(histogramDataUrl, 'PNG', MARGIN, yPos, histWidth, histHeight);
+      console.log('✓ Histogram successfully added to PDF!');
+      
+      yPos += histHeight + 5;
+      
+      // Description
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('Distribution of points across elevation ranges', PAGE_WIDTH / 2, yPos, { align: 'center' });
+    } catch (error) {
+      console.error('❌ Error generating histogram:', error);
+      console.error('Error stack:', error.stack);
+      pdf.setFontSize(9);
+      pdf.text('Could not generate histogram', MARGIN, yPos);
+    }
+  } else {
+    console.warn('❌ No positions data available for histogram');
+    console.warn('reportData.positions value:', reportData.positions);
+  }
 }
 
 /**
@@ -410,4 +462,161 @@ function createLegend(minZ, maxZ) {
   ctx.fillText('Depth (Z)', canvas.width - 10, barY + barHeight / 2 + 4);
   
   return canvas.toDataURL('image/png');
+}
+
+/**
+ * Creates histogram image for Z-height distribution with light background
+ */
+function createHistogramImage(positions, minZ, maxZ) {
+  console.log('createHistogramImage called with:');
+  console.log('  positions length:', positions.length);
+  console.log('  minZ:', minZ, 'maxZ:', maxZ);
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = 1400;
+  canvas.height = 500;
+  const ctx = canvas.getContext('2d');
+  
+  // Light background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  console.log('Canvas created:', canvas.width, 'x', canvas.height);
+  
+  // Calculate histogram
+  const numBins = 10;
+  const bins = new Array(numBins).fill(0);
+  const range = maxZ - minZ;
+  const binSize = range / numBins;
+  
+  // Count points in each bin
+  for (let i = 0; i < positions.length; i += 3) {
+    const z = positions[i + 2];
+    let binIndex = Math.floor((z - minZ) / binSize);
+    if (binIndex >= numBins) binIndex = numBins - 1;
+    if (binIndex < 0) binIndex = 0;
+    bins[binIndex]++;
+  }
+  
+  const maxCount = Math.max(...bins);
+  
+  // Drawing parameters
+  const padding = { top: 40, right: 60, bottom: 80, left: 80 };
+  const chartWidth = canvas.width - padding.left - padding.right;
+  const chartHeight = canvas.height - padding.top - padding.bottom;
+  const barWidth = chartWidth / numBins;
+  const barSpacing = barWidth * 0.1;
+  
+  // Draw grid lines
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 1;
+  const numGridLines = 5;
+  for (let i = 0; i <= numGridLines; i++) {
+    const y = padding.top + (chartHeight * i / numGridLines);
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(padding.left + chartWidth, y);
+    ctx.stroke();
+  }
+  
+  // Draw bars
+  for (let i = 0; i < bins.length; i++) {
+    const count = bins[i];
+    const barHeight = maxCount > 0 ? (count / maxCount) * chartHeight : 0;
+    const x = padding.left + (i * barWidth) + barSpacing / 2;
+    const y = padding.top + chartHeight - barHeight;
+    const width = barWidth - barSpacing;
+    
+    // Calculate color based on elevation
+    const binStart = minZ + (i * binSize);
+    const binEnd = binStart + binSize;
+    const avgZ = (binStart + binEnd) / 2;
+    const normalizedZ = (avgZ - minZ) / range;
+    
+    // Use same color scheme as dashboard (blue to red)
+    const hue = (0.6 - normalizedZ * 0.6) * 360;
+    ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+    
+    // Draw bar
+    ctx.fillRect(x, y, width, barHeight);
+    
+    // Draw bar outline
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, width, barHeight);
+    
+    // Draw X-axis labels (bin ranges)
+    ctx.fillStyle = '#333';
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(binStart.toFixed(1), x + width / 2, padding.top + chartHeight + 25);
+    
+    // Draw count on top of bar if there's space
+    if (barHeight > 30) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      const countText = formatCountForHistogram(count);
+      ctx.fillText(countText, x + width / 2, y + 20);
+    }
+  }
+  
+  // Draw last bin label
+  ctx.fillStyle = '#333';
+  ctx.font = 'bold 16px Arial';
+  ctx.textAlign = 'center';
+  const lastX = padding.left + (numBins * barWidth) - barSpacing / 2;
+  ctx.fillText(maxZ.toFixed(1), lastX, padding.top + chartHeight + 25);
+  
+  // Draw Y-axis labels (counts)
+  ctx.fillStyle = '#333';
+  ctx.font = 'bold 16px Arial';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= numGridLines; i++) {
+    const count = maxCount * (1 - i / numGridLines);
+    const y = padding.top + (chartHeight * i / numGridLines);
+    ctx.fillText(formatCountForHistogram(count), padding.left - 10, y + 5);
+  }
+  
+  // Draw axes
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(padding.left, padding.top);
+  ctx.lineTo(padding.left, padding.top + chartHeight);
+  ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+  ctx.stroke();
+  
+  // Axis labels
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 20px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('Elevation (m)', canvas.width / 2, canvas.height - 20);
+  
+  ctx.save();
+  ctx.translate(20, canvas.height / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Number of Points', 0, 0);
+  ctx.restore();
+  
+  // Title
+  ctx.font = 'bold 24px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#2c3e50';
+  ctx.fillText('Z-Height Distribution', canvas.width / 2, 25);
+  
+  const dataUrl = canvas.toDataURL('image/png');
+  console.log('✓ Histogram canvas converted to dataURL, length:', dataUrl.length);
+  return dataUrl;
+}
+
+/**
+ * Formats count for histogram display
+ */
+function formatCountForHistogram(count) {
+  if (count >= 1000000) {
+    return (count / 1000000).toFixed(1) + 'M';
+  } else if (count >= 1000) {
+    return (count / 1000).toFixed(1) + 'k';
+  }
+  return Math.round(count).toString();
 }
