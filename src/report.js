@@ -16,10 +16,7 @@ const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
  */
 export async function generatePDFReport(reportData, renderer, stats, profileTool = null) {
   try {
-    console.log('=== Starting PDF generation ===');
-    console.log('reportData keys:', Object.keys(reportData));
-    console.log('reportData.positions exists?', !!reportData.positions);
-    console.log('reportData.positions length:', reportData.positions ? reportData.positions.length : 'N/A');
+    console.log('Starting PDF generation...');
     
     const pdf = new jsPDF('p', 'mm', 'a4');
     
@@ -188,36 +185,23 @@ async function createMapPage(pdf, reportData) {
   yPos = drawTable(pdf, statsData, yPos) + 8;
   
   // Add histogram
-  console.log('=== HISTOGRAM SECTION ===');
-  console.log('reportData.positions type:', typeof reportData.positions);
-  console.log('reportData.positions exists?', !!reportData.positions);
-  console.log('reportData.positions is array?', Array.isArray(reportData.positions));
-  
   if (reportData.positions && reportData.positions.length > 0) {
-    console.log('✓ Creating histogram with', reportData.positions.length, 'position values');
-    
     // Check if we need a new page for the histogram
     if (yPos > PAGE_HEIGHT - 85) {
-      console.log('Adding new page for histogram');
       pdf.addPage();
       yPos = MARGIN;
     }
     
     yPos = drawSectionHeader(pdf, 'Z-Height Distribution', yPos);
-    console.log('Section header drawn at yPos:', yPos);
     
     try {
-      console.log('Calling createHistogramImage...');
       const histogramDataUrl = createHistogramImage(reportData.positions, reportData.minZ, reportData.maxZ);
-      console.log('✓ Histogram image generated, dataUrl length:', histogramDataUrl.length);
       
       const histWidth = CONTENT_WIDTH;
       const histHeight = 60;
       
       // Add histogram image
-      console.log('Adding histogram to PDF at position:', MARGIN, yPos);
       pdf.addImage(histogramDataUrl, 'PNG', MARGIN, yPos, histWidth, histHeight);
-      console.log('✓ Histogram successfully added to PDF!');
       
       yPos += histHeight + 5;
       
@@ -468,10 +452,6 @@ function createLegend(minZ, maxZ) {
  * Creates histogram image for Z-height distribution with light background
  */
 function createHistogramImage(positions, minZ, maxZ) {
-  console.log('createHistogramImage called with:');
-  console.log('  positions length:', positions.length);
-  console.log('  minZ:', minZ, 'maxZ:', maxZ);
-  
   const canvas = document.createElement('canvas');
   canvas.width = 1400;
   canvas.height = 500;
@@ -480,7 +460,6 @@ function createHistogramImage(positions, minZ, maxZ) {
   // Light background
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  console.log('Canvas created:', canvas.width, 'x', canvas.height);
   
   // Calculate histogram
   const numBins = 10;
@@ -604,9 +583,7 @@ function createHistogramImage(positions, minZ, maxZ) {
   ctx.fillStyle = '#2c3e50';
   ctx.fillText('Z-Height Distribution', canvas.width / 2, 25);
   
-  const dataUrl = canvas.toDataURL('image/png');
-  console.log('✓ Histogram canvas converted to dataURL, length:', dataUrl.length);
-  return dataUrl;
+  return canvas.toDataURL('image/png');
 }
 
 /**
