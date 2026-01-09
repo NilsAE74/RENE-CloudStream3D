@@ -47,43 +47,70 @@ transformControls.addEventListener('change', () => {
 // Start animasjons-loop
 viewer.animate();
 
-// Last inn default punktsky ved oppstart
-function loadDefaultCloud() {
-  console.log('=== LASTER DEFAULT PUNKTSKY ===');
+// Last inn default punktsky og logo ved oppstart
+async function loadDefaultCloud() {
+  console.log('=== LASTER DEFAULT PUNKTSKY MED LOGO ===');
   
   try {
-    // Generer default punktsky
-    const { positions, colors, count, bounds } = parser.generateDefaultCloud();
+    // Generer default terreng
+    const terrainData = parser.generateDefaultCloud();
+    
+    // Generer logo punktsky (asynkront)
+    const logoData = await parser.generateLogoCloud();
+    
+    // Kombiner terreng og logo
+    console.log('Kombinerer terreng og logo...');
+    const combinedPositions = [...terrainData.positions, ...logoData.positions];
+    const combinedColors = [...terrainData.colors, ...logoData.colors];
+    
+    // Kombiner velocities (terreng har ingen velocity, logo har)
+    const terrainVelocities = new Array(terrainData.positions.length).fill(0);
+    const combinedVelocities = [...terrainVelocities, ...logoData.velocities];
+    
+    const totalCount = terrainData.count + logoData.count;
+    
+    // Kombiner bounds
+    const combinedBounds = {
+      minX: Math.min(terrainData.bounds.minX, logoData.bounds.minX),
+      maxX: Math.max(terrainData.bounds.maxX, logoData.bounds.maxX),
+      minY: Math.min(terrainData.bounds.minY, logoData.bounds.minY),
+      maxY: Math.max(terrainData.bounds.maxY, logoData.bounds.maxY),
+      minZ: Math.min(terrainData.bounds.minZ, logoData.bounds.minZ),
+      maxZ: Math.max(terrainData.bounds.maxZ, logoData.bounds.maxZ)
+    };
+    
+    console.log(`Total punkter: ${totalCount.toLocaleString('nb-NO')} (Terreng: ${terrainData.count}, Logo: ${logoData.count})`);
     
     // Sentrer posisjonene rundt origo
-    const { centeredPositions, offset } = parser.centerPositions(positions, bounds);
+    const { centeredPositions, offset } = parser.centerPositions(combinedPositions, combinedBounds);
     
     // Lagre offset
     selection.setCoordinateOffset(offset.x, offset.y, offset.z);
     viewer.setCoordinateOffset(offset.x, offset.y, offset.z);
     
     // Oppdater dashboard med statistikk
-    const resolution = stats.updateDashboard(count, bounds, positions, 'Default Terreng');
+    const resolution = stats.updateDashboard(totalCount, combinedBounds, combinedPositions, 'Default Terreng + Logo');
     
-    // Oppdater legend med Z-verdier
-    ui.updateLegend(bounds.minZ, bounds.maxZ);
+    // Oppdater legend med Z-verdier (KUN TERRENG, ikke logo)
+    ui.updateLegend(terrainData.bounds.minZ, terrainData.bounds.maxZ);
     
     // Lagre statistikk for rapport
     ui.updateStats({
-      pointCount: count,
-      minZ: bounds.minZ,
-      maxZ: bounds.maxZ,
-      areaX: bounds.maxX - bounds.minX,
-      areaY: bounds.maxY - bounds.minY,
+      pointCount: totalCount,
+      minZ: combinedBounds.minZ,
+      maxZ: combinedBounds.maxZ,
+      areaX: combinedBounds.maxX - combinedBounds.minX,
+      areaY: combinedBounds.maxY - combinedBounds.minY,
       resolution: resolution
     });
     
     // Opprett punktsky og legg til i scenen
+    // useHeightColor = true aktiverer vertex colors (bruker fargene fra både terreng-gradient og logo-piksler)
     const pointCloud = viewer.addPointCloud(
       centeredPositions,
-      colors,
+      combinedColors,
       ui.settings.pointSize,
-      ui.settings.useHeightColor,
+      true, // Bruk vertex colors: terreng får gradient, logo får sine faktiske farger
       ui.settings.pointColor
     );
     
@@ -108,7 +135,7 @@ function loadDefaultCloud() {
     ui.openPointFolder();
     
     // Oppdater GUI ranges basert på faktiske data
-    ui.updateGUIRanges(bounds);
+    ui.updateGUIRanges(combinedBounds);
     
     // Skjul selection box som standard
     selectionBox.visible = false;
@@ -124,8 +151,11 @@ function loadDefaultCloud() {
     // Nullstill originalColors
     selection.resetOriginalColors();
     
-    console.log('Default punktsky lastet!');
-    stats.showDashboardMessage(`✓ Default terreng lastet! ${count.toLocaleString('nb-NO')} punkter visualisert.`, 'info');
+    // Marker at dette er default-skyen og lagre velocity-data for eksplosjon
+    viewer.setIsDefaultCloud(true, combinedVelocities);
+    
+    console.log('Punktsky med logo lastet!');
+    stats.showDashboardMessage(`✓ Default Terreng + Logo lastet! ${totalCount.toLocaleString('nb-NO')} punkter visualisert.`, 'info');
     
   } catch (error) {
     console.error('Feil ved lasting av default punktsky:', error);
@@ -155,6 +185,8 @@ function loadFile(file) {
     console.log(`Filnavn: ${file.name}`);
     console.log(`Størrelse: ${(file.size / 1024).toFixed(2)} KB`);
     
+    // Funksjon som faktisk laster den nye filen
+    const processNewFile = () => {
     try {
       console.log('Starter parsing av fil...');
       
@@ -241,6 +273,9 @@ function loadFile(file) {
       // Nullstill originalColors når ny fil lastes
       selection.resetOriginalColors();
       
+      // Marker at dette ikke er default-skyen lenger
+      viewer.setIsDefaultCloud(false, null);
+      
       console.log('Punktsky opprettet!');
       stats.showDashboardMessage(`✓ Punktsky lastet! ${count.toLocaleString('nb-NO')} punkter visualisert.`, 'info');
       
@@ -249,6 +284,22 @@ function loadFile(file) {
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
       stats.showDashboardMessage(`Feil ved parsing: ${error.message}`, 'error');
+      }
+    };
+    
+    // Sjekk om vi skal trigge eksplosjon
+    if (viewer.getIsDefaultCloud()) {
+      console.log('🎆 Default-sky detektert! Starter eksplosjon før lasting av ny fil...');
+      stats.showDashboardMessage('🎆 Eksploderer logo...', 'info');
+      
+      // Trigger eksplosjon, og last ny fil når animasjonen er ferdig
+      viewer.animateExplosion(() => {
+        console.log('Eksplosjon ferdig, laster ny fil...');
+        processNewFile();
+      });
+    } else {
+      // Ikke default-sky, last filen direkte
+      processNewFile();
     }
   };
   

@@ -6,6 +6,8 @@ let scene, camera, renderer, controls;
 let axesHelper;
 let pointCloud = null;
 let coordinateOffset = { x: 0, y: 0, z: 0 }; // Lagrer offset fra sentrering
+let isDefaultCloud = false; // Flagg for å vite om det er default-skyen
+let explosionVelocities = null; // Lagrer velocity-data for eksplosjon
 
 /**
  * Initialiserer Three.js viewer
@@ -464,6 +466,82 @@ export function getControls() {
  */
 export function getScene() {
   return scene;
+}
+
+/**
+ * Setter flagg for om punktskyen er default-skyen
+ */
+export function setIsDefaultCloud(isDefault, velocities = null) {
+  isDefaultCloud = isDefault;
+  explosionVelocities = velocities;
+  console.log(`Default cloud status: ${isDefault}, velocities: ${velocities ? 'loaded' : 'none'}`);
+}
+
+/**
+ * Sjekker om punktskyen er default-skyen
+ */
+export function getIsDefaultCloud() {
+  return isDefaultCloud;
+}
+
+/**
+ * Animerer eksplosjon av punktskyen
+ * @param {Function} callback - Funksjon som kjøres når animasjonen er ferdig
+ */
+export function animateExplosion(callback) {
+  if (!pointCloud || !explosionVelocities) {
+    console.warn('Ingen punktsky eller velocity-data for eksplosjon');
+    if (callback) callback();
+    return;
+  }
+  
+  console.log('🎆 Starter eksplosjon-animasjon!');
+  
+  const positions = pointCloud.geometry.attributes.position.array;
+  const originalPositions = new Float32Array(positions); // Kopier originale posisjoner
+  const startTime = Date.now();
+  const duration = 1000; // 1 sekund
+  
+  // Sett material til transparent for fade-out
+  pointCloud.material.transparent = true;
+  pointCloud.material.opacity = 1.0;
+  
+  function animate() {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1.0);
+    
+    // Oppdater posisjoner basert på velocity
+    const deltaTime = 1 / 60; // Antatt 60 FPS
+    for (let i = 0; i < positions.length; i += 3) {
+      positions[i] += explosionVelocities[i] * deltaTime;
+      positions[i + 1] += explosionVelocities[i + 1] * deltaTime;
+      positions[i + 2] += explosionVelocities[i + 2] * deltaTime;
+    }
+    
+    // Marker at posisjoner er oppdatert
+    pointCloud.geometry.attributes.position.needsUpdate = true;
+    
+    // Fade out
+    pointCloud.material.opacity = 1.0 - progress;
+    
+    if (progress < 1.0) {
+      requestAnimationFrame(animate);
+    } else {
+      console.log('✓ Eksplosjon fullført!');
+      // Fjern punktskyen fra scenen
+      scene.remove(pointCloud);
+      if (pointCloud.geometry) pointCloud.geometry.dispose();
+      if (pointCloud.material) pointCloud.material.dispose();
+      pointCloud = null;
+      isDefaultCloud = false;
+      explosionVelocities = null;
+      
+      // Kjør callback
+      if (callback) callback();
+    }
+  }
+  
+  animate();
 }
 
 /**

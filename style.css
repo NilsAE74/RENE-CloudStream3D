@@ -46,6 +46,7 @@ canvas {
   color: white;
   border-radius: 5px;
   cursor: pointer;
+  font-family: Arial, sans-serif;
   font-size: 16px;
   font-weight: bold;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);

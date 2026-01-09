@@ -140,7 +140,7 @@ export function generateDefaultCloud() {
       // Kombiner alle bølger og skaler til 0-10 meter
       let z = baseZ + 5 + wave1 + wave2 + wave3 + wave4 + noise;
       
-      // Sikre at z er innenfor 0-10 meter
+      // Sikre at z er innenfor baseZ til baseZ+10 meter
       z = Math.max(baseZ, Math.min(baseZ + 10, z));
       
       tempPoints.push({ x, y, z });
@@ -181,4 +181,178 @@ export function generateDefaultCloud() {
       maxZ: maxZ
     }
   };
+}
+
+/**
+ * Genererer en 3D punktsky fra bedriftens logo
+ * - Laster inn RENElogo.png
+ * - Konverterer hver piksel til et 3D-punkt
+ * - Beholder originalfargene fra logoen
+ * - Plasserer logoen svevende over terrenget
+ * 
+ * @returns {Promise} Promise som resolves til punktsky-data
+ */
+export function generateLogoCloud() {
+  return new Promise((resolve, reject) => {
+    console.log('Genererer logo punktsky...');
+    
+    // Opprett et usynlig canvas-element
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Logo-dimensjoner
+    const logoWidth = 1067;
+    const logoHeight = 400;
+    canvas.width = logoWidth;
+    canvas.height = logoHeight;
+    
+    // Last inn logo-bildet
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; // Tillat CORS hvis nødvendig
+    
+    img.onload = () => {
+      // Tegn logoen på canvas
+      ctx.drawImage(img, 0, 0, logoWidth, logoHeight);
+      
+      // Hent pixel-data
+      const imageData = ctx.getImageData(0, 0, logoWidth, logoHeight);
+      const pixels = imageData.data;
+      
+      const positions = [];
+      const colors = [];
+      const velocities = []; // For eksplosjon-animasjon
+      const tempPoints = [];
+      
+      // UTM-koordinater (samme som default cloud)
+      const baseX = 500000;
+      const baseY = 6000000;
+      const baseZ = -15; // Svevende over terrenget (som er på -70 til -60)
+      
+      // Skalering: Logo skal være ca. 50 meter bred
+      const targetWidth = 50;
+      const scaleX = targetWidth / logoWidth;
+      const scaleY = scaleX; // Behold aspect ratio
+      
+      // Sentrer logoen over terrenget (terreng er 100x100m, starter på baseX/baseY)
+      const centerOffsetX = baseX + 25; // Midt i terrenget (100m / 2 - 50m / 2 = 25m offset)
+      const centerOffsetY = baseY + 50;
+      
+      // Beregn sentrum for logo (for eksplosjon-retninger)
+      const logoCenterX = centerOffsetX + (logoWidth * scaleX) / 2;
+      const logoCenterY = centerOffsetY + 1; // Midt i tykkelsen
+      const logoCenterZ = baseZ + (logoHeight * scaleY) / 2;
+      
+      let minZ = Infinity;
+      let maxZ = -Infinity;
+      
+      // Sample-rate: For å ikke få for mange punkter, kan vi sample hver N'te piksel
+      const sampleRate = 2; // Sample hver 2. piksel (justér for tetthet)
+      
+      // Iterer gjennom alle piksler
+      for (let y = 0; y < logoHeight; y += sampleRate) {
+        for (let x = 0; x < logoWidth; x += sampleRate) {
+          const index = (y * logoWidth + x) * 4;
+          
+          const r = pixels[index];
+          const g = pixels[index + 1];
+          const b = pixels[index + 2];
+          const a = pixels[index + 3];
+          
+          // Kun punkter for synlige piksler (alpha > threshold)
+          if (a > 50) { // Threshold for transparens
+            // Konverter piksel-koordinater til 3D-koordinater
+            // Logo skal stå OPPREIST (vertikal):
+            const pointX = centerOffsetX + (x * scaleX);  // Bredde (venstre-høyre)
+            const pointY = centerOffsetY + Math.random() * 2;  // Tykkelse (dybde)
+            const pointZ = baseZ + ((logoHeight - y) * scaleY);  // Høyde (opp-ned)
+            
+            tempPoints.push({ 
+              x: pointX, 
+              y: pointY, 
+              z: pointZ,
+              r: r / 255,
+              g: g / 255,
+              b: b / 255
+            });
+            
+            minZ = Math.min(minZ, pointZ);
+            maxZ = Math.max(maxZ, pointZ);
+          }
+        }
+      }
+      
+      console.log(`Logo punktsky generert: ${tempPoints.length} punkter`);
+      console.log(`Z range: ${minZ.toFixed(2)} til ${maxZ.toFixed(2)}`);
+      
+      // Finn X/Y bounds
+      let minX = Infinity, maxX = -Infinity;
+      let minY = Infinity, maxY = -Infinity;
+      
+      for (const point of tempPoints) {
+        minX = Math.min(minX, point.x);
+        maxX = Math.max(maxX, point.x);
+        minY = Math.min(minY, point.y);
+        maxY = Math.max(maxY, point.y);
+      }
+      
+      // Opprett posisjon, farge og velocity-arrays
+      for (const point of tempPoints) {
+        positions.push(point.x, point.y, point.z);
+        colors.push(point.r, point.g, point.b);
+        
+        // Beregn retningsvektor fra sentrum til punktet (for eksplosjon)
+        const dx = point.x - logoCenterX;
+        const dy = point.y - logoCenterY;
+        const dz = point.z - logoCenterZ;
+        
+        // Normaliser retningen og multipliser med tilfeldig hastighet
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const speed = 15 + Math.random() * 25; // Tilfeldig hastighet 15-40 m/s
+        
+        if (distance > 0) {
+          velocities.push(
+            (dx / distance) * speed,
+            (dy / distance) * speed,
+            (dz / distance) * speed
+          );
+        } else {
+          // Hvis punktet er akkurat i sentrum, gi tilfeldig retning
+          const randomAngle = Math.random() * Math.PI * 2;
+          const randomElevation = (Math.random() - 0.5) * Math.PI;
+          velocities.push(
+            Math.cos(randomAngle) * Math.cos(randomElevation) * speed,
+            Math.sin(randomAngle) * Math.cos(randomElevation) * speed,
+            Math.sin(randomElevation) * speed
+          );
+        }
+      }
+      
+      console.log(`X range: ${minX.toFixed(2)} til ${maxX.toFixed(2)}`);
+      console.log(`Y range: ${minY.toFixed(2)} til ${maxY.toFixed(2)}`);
+      
+      resolve({
+        positions,
+        colors,
+        velocities, // Legg til velocities for eksplosjon
+        count: tempPoints.length,
+        bounds: {
+          minX,
+          maxX,
+          minY,
+          maxY,
+          minZ,
+          maxZ
+        }
+      });
+    };
+    
+    img.onerror = (error) => {
+      console.error('Feil ved lasting av logo:', error);
+      reject(new Error('Kunne ikke laste logo-bilde'));
+    };
+    
+    // Start lasting av bilde
+    // Bruk full path med Vite base (satt i vite.config.js)
+    img.src = '/RENE-CloudStream3D/RENElogo.png';
+  });
 }

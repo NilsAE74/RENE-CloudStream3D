@@ -366,3 +366,78 @@ Gjør følgende:
 5. **Dashboard:** Sørg for at histogrammet og statistikk-dashboardet også viser data for denne default-skyen ved oppstart.
 
 Bruk gjerne farge-gradienten vi allerede har satt opp, slik at det ser bra ut med en gang.
+
+
+Jeg vil lage en funksjon som konverterer bedriftens logo til en 3D-punktsky som vises ved oppstart.
+
+Gjør følgende i `src/parser.js`:
+
+1. **Funksjon `generateLogoCloud()`**:
+   - Last inn `public/RENElogo.png`.
+   - Tegn logoen på et usynlig HTML5 Canvas-element,1067x400 piksler.
+   - Bruk `getImageData()` for å gå gjennom alle pikslene i bildet.
+   - For hver piksel som ikke er gjennomsiktig (alpha > 0):
+     * Opprett et punkt i 3D-rommet.
+     * **X og Y:** Bruk pikselens koordinater (skalert til f.eks. 50 meter utstrekning).
+     * **Z (Høyde):** Gi logoen litt tykkelse ved å tilfeldig fordele punktene mellom Z=0 og Z=5
+     * **Farge:** Hent fargen direkte fra pikselen i logoen slik at punktskyen ser ut som merkevaren vår.
+
+2. **Georeferering:**
+   - Plasser logo-skyen på de samme UTM-koordinatene som vi har brukt tidligere litt svevende over default punktsky laget med generateDefaultCloud().
+
+
+Oppdater koden slik at appen starter med en stilig, 3D-versjon av vår egen logo svevevende over det genererte landskapet..
+
+
+Jeg vil legge til en "eksplosjons-animasjon" på default-punktskyen (logoen) som trigges første gang brukeren laster opp en fil.
+
+Gjør følgende endringer:
+
+1. **Forberedelse (i src/parser.js eller der logoen genereres):**
+   - Når `generateLogoCloud()` lager punktene, legg til et ekstra "attribute" til geometrien som heter `velocity`. 
+   - Hvert punkt skal få en tilfeldig retning (Vector3) som peker utover fra sentrum, med en tilfeldig hastighet.
+
+2. **Animasjonslogikk (i src/viewer.js):**
+   - Lag en funksjon `animateExplosion(callback)`.
+   - Denne funksjonen skal bruke `requestAnimationFrame` for å flytte hvert punkt i logoen langs sin `velocity`-vektor.
+   - Legg til en "fade-out" effekt ved å gradvis redusere `material.opacity` til logoen er helt usynlig.
+   - Når animasjonen er ferdig (f.eks. etter 1 sekund), skal `callback()` kjøres for å fjerne logoen helt og slippe inn de nye dataene.
+
+3. **Trigger (i main.js eller ui.js):**
+   - Endre logikken for fil-opplasting. 
+   - Hvis den aktive skyen er "default"-skyen:
+     * Ikke slett den umiddelbart.
+     * Kjør `animateExplosion()`.
+     * Vent til animasjonen er ferdig før du kaller funksjonen som parser og viser den nye XYZ-filen.
+   - Hvis det ikke er første gang (en annen fil er allerede lastet), kan du bytte ut dataene umiddelbart som før.
+
+Sørg for at eksplosjonen ser dynamisk ut og at overgangen til den nye punktskyen føles sømløs.
+
+
+Jeg vil oppdatere `generateDefaultCloud()` i `src/parser.js` slik at den genererer et helt nytt og unikt landskap hver gang siden lastes inn.
+
+Gjør følgende endringer:
+
+1. **Randomisering av parametere:**
+   - Hver gang funksjonen kjøres, skal den velge tilfeldige verdier for:
+     * **Amplituden** (hvor høye fjellene er, f.eks. mellom 2 og 15 meter).
+     * **Frekvensen** (hvor tett bølgene/høydene ligger).
+     * **Fasen/Offset** (hvor i landskapet vi starter).
+
+2. **Variasjon i "Terrengtype":**
+   - Lag en logikk som velger mellom 3 ulike "stiler" ved hjelp av `Math.random()`:
+     * **"Fjellheimen":** Store høydeforskjeller og skarpe topper.
+     * **"Bølgende åser":** Myke, lange sinus-kurver.
+     * **"Platå":** Et flatt område med noen bratte kantskrenter (trappetrinn-effekt).
+
+3. **Matematisk utførelse:**
+   - I stedet for bare én sinus-bølge, kombiner minst tre (f.eks. `z = sin(x*a) * cos(y*b) + sin(x*c)` med tilfeldige a, b, c). Dette skaper et mer komplekst og troverdig terreng.
+   
+4. **Farge og Georeferering:**
+   - Sørg for at fargeskalaen og det georefererte gridet oppdaterer seg slik at det passer til det nye terrenget hver gang.
+   - Bruk de samme store UTM-koordinatene som tidligere, men legg gjerne på en liten tilfeldig offset i X og Y også, så "kartet" flytter seg litt hver gang.
+
+5. **Elevation Legend:**   
+   - Sørg for at logoen ikke er en del av z-verdiene i legend
+
+Målet er at brukeren skal få en ny opplevelse hver gang de åpner appen, og at vi får testet farge- og histogram-logikken på mange ulike datatyper.
