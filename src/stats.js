@@ -87,6 +87,13 @@ export function updateDashboard(pointCount, bounds, positions, fileName = '') {
 }
 
 /**
+ * Gets the current filename
+ */
+export function getFileName() {
+  return currentFileName;
+}
+
+/**
  * Updates metadata in dashboard
  */
 export function updateMetadata(metadata) {

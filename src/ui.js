@@ -345,11 +345,12 @@ function handleInvertZ() {
   // Update legend with new Z-values
   updateLegend(originalMinZ, originalMaxZ);
 
-  // Update statistics for report with new Z-values
+  // Update statistics for report with new Z-values AND positions
   if (currentStats) {
     currentStats.minZ = originalMinZ;
     currentStats.maxZ = originalMaxZ;
-    console.log('Statistics updated for PDF export with inverted Z-values');
+    currentStats.positions = originalPositions;  // Update positions for histogram
+    console.log('Statistics updated for PDF export with inverted Z-values and positions');
   }
 
   stats.showDashboardMessage('✓ Z-axis inverted!', 'info');
@@ -440,8 +441,6 @@ async function handleGenerateReport() {
     
     // Use positions from stored statistics (original coordinates)
     const positions = currentStats.positions || null;
-    
-    console.log('Positions for histogram:', positions ? positions.length : 'null');
     
     const reportData = {
       projectName: reportSettings.projectName,

@@ -4,6 +4,7 @@
 
 import { jsPDF } from 'jspdf';
 import * as viewer from './viewer.js';
+import { getFileName } from './stats.js';
 
 // Konstanter
 const PAGE_WIDTH = 210;
@@ -62,6 +63,17 @@ function createCoverPage(pdf, reportData) {
   
   pdf.setFillColor(44, 62, 80);
   pdf.rect(0, 95, PAGE_WIDTH, 10, 'F');
+
+  /*// *** NYTT: Legg til logo med transparent bakgrunn ***
+  // Last inn logo som base64 eller data URL
+  const logoDataUrl = 'public/PDF_Header.png'; // Din logo her
+  const logoWidth = 200;  // mm
+  const logoHeight = 50; // mm
+  const logoX = (PAGE_WIDTH - logoWidth) / 2;
+  const logoY = 10;
+  
+  pdf.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+  */
   
   // Tittel
   pdf.setTextColor(255, 255, 255);
@@ -71,7 +83,7 @@ function createCoverPage(pdf, reportData) {
   
   pdf.setFontSize(16);
   pdf.setFont('helvetica', 'normal');
-  pdf.text('Punktsky-analyse Rapport', PAGE_WIDTH / 2, 70, { align: 'center' });
+  pdf.text('Point Cloud Report', PAGE_WIDTH / 2, 70, { align: 'center' });
   
   // Info-boks
   let yPos = 130;
@@ -81,7 +93,7 @@ function createCoverPage(pdf, reportData) {
   
   pdf.setFontSize(12);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('Rapport Detaljer', MARGIN + 10, yPos + 15);
+  pdf.text('Report Details', MARGIN + 10, yPos + 5);
   
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(11);
@@ -90,9 +102,11 @@ function createCoverPage(pdf, reportData) {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
-  pdf.text(`Generated: ${date}`, MARGIN + 10, yPos + 28);
-  pdf.text(`Coordinate system: ${reportData.datum || ''}`, MARGIN + 10, yPos + 38);
-  pdf.text(`Projection: ${reportData.projection || ''}`, MARGIN + 10, yPos + 48);
+  pdf.text(`Generated: ${date}`, MARGIN + 10, yPos + 18);
+  pdf.text(`Coordinate system: ${reportData.datum || ''}`, MARGIN + 10, yPos + 28);
+  pdf.text(`Projection: ${reportData.projection || ''}`, MARGIN + 10, yPos + 38);
+  pdf.text(`Filename: ${getFileName() || ''}`, MARGIN + 10, yPos + 48);
+  
 }
 
 /**
@@ -124,7 +138,7 @@ async function createMapPage(pdf, reportData) {
   yPos = drawSectionHeader(pdf, 'Top View (Orthographic)', yPos);
   
   try {
-    const mapResult = await viewer.generateMapImage(2048, reportData.resolution);
+    const mapResult = await viewer.generateMapImage(1024, reportData.resolution);
     
     if (mapResult && mapResult.imageDataUrl) {
       const axisSpace = 12;
@@ -143,9 +157,9 @@ async function createMapPage(pdf, reportData) {
       // Akser med koordinater
       drawAxisLabels(pdf, imgX, imgY, imgSize, mapResult.bounds, mapResult.gridCellSize, mapResult.gridCenter);
       
-      // Legg til fargeforklaring (legend) i øvre høyre hjørne
-      const legendWidth = 50;  // mm
-      const legendHeight = 12; // mm
+      // Legg til fargeforklaring (legend) i øvre høyre hjørne - VERTICAL
+      const legendWidth = 15;  // mm (narrower for vertical)
+      const legendHeight = 50; // mm (taller for vertical)
       const legendX = imgX + imgSize - legendWidth - 3;
       const legendY = imgY + 3;
       
@@ -381,69 +395,71 @@ async function createProfilePage(pdf, profileTool, reportData) {
 }
 
 /**
- * Creates color legend for Z-values
+ * Creates VERTICAL color legend for Z-values
  * Returns a DataURL with gradient and labels
  */
 function createLegend(minZ, maxZ) {
-  // Opprett midlertidig canvas
+  // Create temporary canvas - VERTICAL orientation
   const canvas = document.createElement('canvas');
-  canvas.width = 300;
-  canvas.height = 60;
+  canvas.width = 90;   // narrower
+  canvas.height = 300; // taller
   const ctx = canvas.getContext('2d');
   
-  // Hvit bakgrunn med avrundede hjørner
+  // White background with rounded corners
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
   ctx.beginPath();
   ctx.roundRect(0, 0, canvas.width, canvas.height, 6);
   ctx.fill();
   
-  // Ramme
+  // Border
   ctx.strokeStyle = '#888';
   ctx.lineWidth = 1;
   ctx.stroke();
   
-  // Gradient bar dimensjoner
+  // Gradient bar dimensions - VERTICAL
   const barX = 15;
-  const barY = 10;
-  const barWidth = canvas.width - 30;
-  const barHeight = 20;
+  const barY = 40;
+  const barWidth = 25;  // narrow bar
+  const barHeight = canvas.height - 80; // tall bar
   
-  // Tegn farge-gradient (matcher den mørkere skalaen brukt i PDF-eksporten)
-  const gradient = ctx.createLinearGradient(barX, 0, barX + barWidth, 0);
+  // Draw color gradient VERTICALLY (top to bottom = high to low)
+  const gradient = ctx.createLinearGradient(0, barY, 0, barY + barHeight);
   
-  // HSL: 0.6 (blå) til 0.0 (rød), saturation 1.0, lightness 0.35 (mørkere for bedre synlighet)
-  gradient.addColorStop(0, 'hsl(216, 100%, 35%)');    // Mørk blå (lav Z)
-  gradient.addColorStop(0.25, 'hsl(180, 100%, 35%)'); // Mørk cyan
-  gradient.addColorStop(0.5, 'hsl(120, 100%, 35%)');  // Mørk grønn
-  gradient.addColorStop(0.75, 'hsl(60, 100%, 45%)');  // Mørk gul (litt lysere for synlighet)
-  gradient.addColorStop(1, 'hsl(0, 100%, 40%)');      // Mørk rød (høy Z)
+  // Top = high elevation (red), Bottom = low elevation (blue)
+  gradient.addColorStop(0, 'hsl(0, 100%, 40%)');      // Dark red (high Z) - TOP
+  gradient.addColorStop(0.25, 'hsl(60, 100%, 45%)');  // Dark yellow
+  gradient.addColorStop(0.5, 'hsl(120, 100%, 35%)');  // Dark green
+  gradient.addColorStop(0.75, 'hsl(180, 100%, 35%)'); // Dark cyan
+  gradient.addColorStop(1, 'hsl(216, 100%, 35%)');    // Dark blue (low Z) - BOTTOM
   
   ctx.fillStyle = gradient;
   ctx.fillRect(barX, barY, barWidth, barHeight);
   
-  // Ramme rundt gradient
+  // Border around gradient
   ctx.strokeStyle = '#333';
   ctx.lineWidth = 1;
   ctx.strokeRect(barX, barY, barWidth, barHeight);
   
-  // Labels
+  // Labels - VERTICAL arrangement
   ctx.fillStyle = '#000';
   ctx.font = 'bold 11px Arial';
   ctx.textAlign = 'left';
-  ctx.fillText(`${minZ.toFixed(1)} m`, barX, barY + barHeight + 14);
   
-  ctx.textAlign = 'center';
+  // Top label (max Z)
+  ctx.fillText(`${maxZ.toFixed(1)} m`, barX + barWidth + 5, barY + 5);
+  
+  // Middle label
   const midZ = (minZ + maxZ) / 2;
-  ctx.fillText(`${midZ.toFixed(1)} m`, barX + barWidth / 2, barY + barHeight + 14);
+  ctx.fillText(`${midZ.toFixed(1)} m`, barX + barWidth + 5, barY + barHeight / 2 + 4);
   
-  ctx.textAlign = 'right';
-  ctx.fillText(`${maxZ.toFixed(1)} m`, barX + barWidth, barY + barHeight + 14);
+  // Bottom label (min Z)
+  ctx.fillText(`${minZ.toFixed(1)} m`, barX + barWidth + 5, barY + barHeight);
   
-  // Title
+  // Title at top
   ctx.fillStyle = '#333';
   ctx.font = 'bold 10px Arial';
-  ctx.textAlign = 'right';
-  ctx.fillText('Depth (Z)', canvas.width - 10, barY + barHeight / 2 + 4);
+  ctx.textAlign = 'center';
+  ctx.fillText('Elevation (Z)', canvas.width / 2, 20);
   
   return canvas.toDataURL('image/png');
 }
