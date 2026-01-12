@@ -531,3 +531,81 @@ Gjør følgende endringer i `src/ui.js` og den modulen som håndterer profil-gra
    - Sørg for at 3D-viewet (canvaset) automatisk krymper eller justerer sin bunn-margin når profil-panelet er åpent, slik at de ikke overlapper og skjuler viktig informasjon (som f.eks. måleverktøy-labels).
 
 Sørg for at overgangen mellom ulike snitt føles rask og at GUI-et flyter sømløst uavhengig av om snittet er 10 meter eller 1000 meter langt.
+
+
+Jeg vil implementere en Toolbar i topp-senter av appen som bruker de vedlagte SVG-ikonene.
+
+Gjør følgende endringer:
+
+1. HTML:
+Opprett en container `<div id="toolbar-container">` øverst i midten.
+Legg til knapper for:
+- Reset View (Bruk Reset SVG)
+- Heatmap (Bruk Palette SVG)
+- Grid (Bruk Grid SVG)
+- Cross-section (Bruk Profile SVG)
+- Measurement (Bruk Ruler SVG)
+
+2. CSS (style.css):
+- #toolbar-container skal være 'position: absolute', 'top: 20px', 'left: 50%', 'transform: translateX(-50%)'.
+- Bruk en mørk bakgrunn: 'rgba(25, 25, 35, 0.8)', 'backdrop-filter: blur(8px)'.
+- Styling: 'display: flex', 'gap: 8px', 'padding: 8px', 'border-radius: 8px', 'border: 1px solid rgba(255,255,255,0.1)'.
+- Knappene skal være transparente, ha 'padding: 8px', 'border-radius: 4px' og fargen 'white'.
+- Ved 'hover' skal knappen få en lysere bakgrunn: 'rgba(255, 255, 255, 0.15)'.
+- Ved 'active' (når verktøyet er på), sett bakgrunn til blå: 'rgba(0, 170, 255, 0.4)'.
+
+3. Logikk (src/ui.js):
+- Koble Reset-knappen til 'controls.reset()'.
+- Koble Heatmap-knappen til å toggle fargevisning.
+- Koble Grid-knappen til å slå av/på GridHelper.
+- Koble Cross-section og Measurement til å aktivere sine respektive moduser og deaktivere OrbitControls mens de er aktive.
+
+Sørg for at ikonene er midtstilt i knappene og at hele baren ser 'clean' og profesjonell ut.
+
+Her er SVG kodene:
+Reset View (Sirkel-pil): <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+
+Heatmap (Palett): <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"></circle><circle cx="17.5" cy="10.5" r=".5"></circle><circle cx="8.5" cy="7.5" r=".5"></circle><circle cx="6.5" cy="12.5" r=".5"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path></svg>
+
+Grid (Rutenett): <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path><path d="M3 15h18"></path><path d="M9 3v18"></path><path d="M15 3v18"></path></svg>
+
+Cross-section (Profil): <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21h20"></path><path d="m2 8 2 2 4-4 4 4 2-2 4 4 4-4"></path></svg>
+
+Measurement (Linjal): <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.41 10.95-9.45-9.44a1.5 1.5 0 0 0-2.12 0L1.41 9.94a1.5 1.5 0 0 0 0 2.12l9.45 9.44a1.5 1.5 0 0 0 2.12 0l8.43-8.43a1.5 1.5 0 0 0 0-2.12Z"></path><path d="m7 7 1.5 1.5"></path><path d="m10 10 1.5 1.5"></path><path d="m13 13 1.5 1.5"></path><path d="m16 16 1.5 1.5"></path></svg>
+
+
+Jeg vil opprette et dedikert, flytende panel som viser resultatet av målinger. Det skal ha samme visuelle stil som "Point Cloud Statistics"-boksen vår (glassmorphism, mørk bakgrunn).
+
+Gjør følgende endringer:
+
+1. **HTML (index.html):**
+   - Lag en ny `div` med id `measurement-panel`.
+   - Denne skal inneholde:
+     - En overskrift: "Measurement".
+     - En hovedverdi for **Lengde** (stor font).
+     - En seksjon for **Delta-verdier** (forskjellen mellom start og slutt):
+       - Δ X (Delta X)
+       - Δ Y (Delta Y)
+       - Δ Z (Høydeforskjell)
+   - Legg gjerne til en liten "Lukk" (X) knapp i hjørnet, selv om den også lukkes når verktøyet deaktiveres.
+
+2. **CSS (style.css):**
+   - Kopier stilen fra `.stats-panel` (eller tilsvarende) slik at `measurement-panel` ser helt lik ut.
+   - Posisjonering: Sett den fast rett over "Point Cloud Statistics" boksen til venstre.
+   - Sørg for at den er `display: none` som default.
+   - **Fargekoding:** Gjør labelene for ΔX rødlig, ΔY grønnlig og ΔZ blålig for å matche 3D-aksene. Det gjør det lettere å lese raskt.
+
+3. **Logikk (src/measurement.js og src/ui.js):**
+   - **Aktivering:** Når jeg trykker på "Linjal"-knappen i verktøylinjen, skal `measurement-panel` endres til `display: block`.
+   - **Deaktivering:** Når jeg trykker på knappen igjen (eller Reset), skal panelet skjules.
+   - **Oppdatering:** Hver gang en måling er fullført (brukeren har klikket start og slutt):
+     - Beregn avstandene basert på de *reelle* koordinatene (inkludert offset).
+     - Oppdater HTML-innholdet med:
+       - Lengde (f.eks. "12.45 m")
+       - ΔX, ΔY, ΔZ (med 2 eller 3 desimaler).
+     - Hvis ingen måling er gjort ennå, vis streker ("--") eller "Klikk for å måle".
+
+4. **Integrasjon:**
+   - Sørg for at dette panelet legger seg pent over 3D-visningen uten å forstyrre museklikkene når man ikke holder over selve boksen.
+
+Implementer dette slik at jeg får umiddelbar feedback på dimensjonene jeg måler.
