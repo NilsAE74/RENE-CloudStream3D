@@ -12,6 +12,28 @@ import * as grid from './src/grid.js';
 import { MeasurementTool } from './src/measurement.js';
 import { ProfileTool } from './src/profile.js';
 
+// Global variabel for å spore om brukeren har lastet en fil
+let hasUserUploadedFile = false;
+
+/**
+ * Oppdaterer visningen av upload-knapper basert på om data er lastet
+ */
+function updateUploadButtonVisibility() {
+  const uploadButton = document.querySelector('.upload-button');
+  const toolbarUpload = document.getElementById('toolbar-upload');
+  
+  if (hasUserUploadedFile) {
+    // Brukeren har lastet en fil - vis toolbar knapp, skjul stor knapp
+    if (uploadButton) uploadButton.style.display = 'none';
+    if (toolbarUpload) toolbarUpload.style.display = 'flex';
+  } else {
+    // Brukeren har ikke lastet noen fil ennå - vis stor knapp, skjul toolbar knapp
+    if (uploadButton) uploadButton.style.display = 'block';
+    if (toolbarUpload) toolbarUpload.style.display = 'none';
+  }
+}
+
+
 // Initialiser Three.js viewer
 const { scene, camera, controls } = viewer.initViewer();
 
@@ -20,6 +42,9 @@ ui.initGUI();
 
 // Initialiser Dashboard
 stats.initDashboard();
+
+// Oppdater visningen av upload-knapper ved oppstart
+updateUploadButtonVisibility();
 
 // Initialiser Selection Box
 const { selectionBox, transformControls } = selection.initSelectionBox(
@@ -202,6 +227,9 @@ async function loadDefaultCloud() {
     console.log('📏 Tip: Activate the measurement tool in GUI to measure distances!');
     stats.showDashboardMessage(`✓ Terrain loaded with ${terrainData.count.toLocaleString('nb-NO')} points (+ Logo: ${logoData.count.toLocaleString('nb-NO')} points)`, 'info');
 
+    // Oppdater upload knapp visning etter default terreng er lastet
+    updateUploadButtonVisibility();
+
     // Show brief info about measurement tool
     setTimeout(() => {
       stats.showDashboardMessage('💡 The measurement tool is ready! Activate it in GUI (📏 Measurement Tool)', 'info');
@@ -353,6 +381,12 @@ function loadFile(file) {
 
       console.log('Point cloud created!');
       stats.showDashboardMessage(`✓ Point cloud loaded! ${count.toLocaleString('nb-NO')} points visualized.`, 'info');
+
+      // Marker at brukeren har lastet en fil
+      hasUserUploadedFile = true;
+
+      // Oppdater upload knapp visning etter fil er lastet
+      updateUploadButtonVisibility();
       
       } catch (error) {
         stats.hideLoadingSpinner();
@@ -401,6 +435,11 @@ function loadFile(file) {
 fileInput.addEventListener('change', async (event) => {
   const file = event.target.files[0];
   loadFile(file);
+});
+
+// Event listener for toolbar upload button
+document.getElementById('toolbar-upload').addEventListener('click', () => {
+  fileInput.click();
 });
 
 // Drag and Drop functionality

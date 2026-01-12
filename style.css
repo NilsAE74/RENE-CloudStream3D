@@ -294,6 +294,10 @@ canvas {
   pointer-events: none;
 }
 
+/* Toolbar upload button - start skjult */
+#toolbar-upload {
+  display: none;
+}
 
 /* =============================================================================
    COMPONENTS - UPLOAD BUTTON
