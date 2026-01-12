@@ -652,3 +652,26 @@ Opptre som en Senior UI/UX-utvikler og refaktorer hele `style.css`.
     * Grupper koden logisk med kommentarer: `/* --- VARIABLES --- */`, `/* --- LAYOUT --- */`, `/* --- COMPONENTS --- */`.
 
 Vennligst skriv om `style.css` basert på dette, og sørg for at det eksisterende HTML-oppsettet (toolbar, stats, measurement) fortsatt fungerer perfekt med de nye klassene.
+
+
+Jeg vil polere det siste visuelle for å få en helt helhetlig stil.
+
+Gjør følgende endringer i CSS og JS:
+
+1. **Styling av Høyre Meny (lil-gui):**
+   - Jeg vil at menyen på høyre side skal matche "Glassmorphism"-stilen til panelene på venstre side.
+   - Overstyr CSS-en for `.lil-gui.root`:
+     - Bakgrunn: Bruk samme `rgba(...)` og `backdrop-filter: blur(...)` som `.glass-panel`.
+     - Border-radius: Match panelene (f.eks. 8px).
+     - Fjern standard border/shadow hvis den kræsjer med stilen.
+     - Sørg for at den har samme avstand (margin) til høyre kant som venstrepanelene har til venstre kant.
+
+2. **Histogram Lesbarhet:**
+   - Skriften på X-aksen i histogrammet (tallene) er for små.
+   - Øk fontstørrelsen.
+   - Hvis det blir plassmangel: Implementer logikk som hopper over annenhver label (render kun index 0, 2, 4...), eller roter teksten litt.
+
+3. **Alignment-sjekk:**
+   - Sørg for at `measurement-panel`, `stats-panel` og `legend` har konsekvente marginer fra skjermkantene (f.eks. 20px).
+
+Gjør appen visuelt symmetrisk og konsistent nå.

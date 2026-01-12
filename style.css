@@ -17,6 +17,7 @@
 
   /* --- Colors: Text --- */
   --color-text-main: #f0f0f0;
+  --color-text-dark: #000000;
   --color-text-muted: #aaaaaa;
   --color-text-disabled: rgba(255, 255, 255, 0.5);
 
@@ -374,9 +375,9 @@ canvas {
 
 .dashboard h4 {
   margin: var(--spacing-md) 0 var(--spacing-sm) 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--color-accent);
+  color: var(--color-text-main);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -403,7 +404,7 @@ canvas {
 }
 
 .stat-value {
-  color: var(--color-accent);
+  color: var(--color-text-main);
   font-weight: 700;
   font-size: var(--font-size-base);
   font-family: var(--font-mono);
@@ -695,19 +696,21 @@ canvas {
 }
 
 .bar-count {
-  font-size: 9px;
+  font-size: 11px;
   font-family: var(--font-mono);
-  color: var(--color-text-main);
-  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
-  margin-top: 2px;
+  color: var(--color-text-dark);
+  /*text-shadow: 0 0 1px rgba(255, 255, 255, 0.9);*/
+  margin-top: 7px;
+  text-align: right;
   font-weight: 600;
+  transform: rotate(-90deg);
 }
 
 .bar-label {
   font-size: 9px;
   font-family: var(--font-mono);
   color: var(--color-text-muted);
-  margin-top: 4px;
+  margin-top: 2px;
   text-align: center;
   white-space: nowrap;
   font-weight: 500;
@@ -1037,7 +1040,7 @@ body.dragging::before {
 
 
 /* =============================================================================
-   THIRD-PARTY - LIL-GUI CUSTOMIZATION
+   THIRD-PARTY - LIL-GUI CUSTOMIZATION (Glassmorphism Style)
    ============================================================================= */
 
 .lil-gui {
@@ -1069,12 +1072,15 @@ body.dragging::before {
   --widget-border-radius: var(--radius-std) !important;
   --checkbox-size: 18px !important;
   --scrollbar-width: 6px !important;
-  border-radius: var(--radius-lg) !important;
+  
+  /* Match glass-panel glassmorphism style exactly */
+  background: var(--bg-panel) !important;
   backdrop-filter: var(--backdrop-blur) !important;
   -webkit-backdrop-filter: var(--backdrop-blur) !important;
-  border: 1px solid var(--color-border) !important;
+  border: none !important;
+  border-radius: var(--radius-lg) !important;
   box-shadow: var(--shadow-md) !important;
-  transition: all 0.3s ease !important;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease !important;
 }
 
 .lil-gui:hover {
