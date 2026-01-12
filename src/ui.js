@@ -63,9 +63,164 @@ export const profileSettings = {
 };
 
 /**
+ * Initializes the toolbar
+ */
+export function initToolbar() {
+  const resetBtn = document.getElementById('toolbar-reset');
+  const heatmapBtn = document.getElementById('toolbar-heatmap');
+  const gridBtn = document.getElementById('toolbar-grid');
+  const profileBtn = document.getElementById('toolbar-profile');
+  const measurementBtn = document.getElementById('toolbar-measurement');
+
+    // Reset View button
+    resetBtn.addEventListener('click', () => {
+      const pointCloud = viewer.getPointCloud();
+      if (pointCloud) {
+        // Recompute bounding box and sphere
+        pointCloud.geometry.computeBoundingBox();
+        pointCloud.geometry.computeBoundingSphere();
+        
+        // Center camera on the point cloud
+        viewer.centerCameraOnBounds(
+          pointCloud.geometry.boundingBox,
+          pointCloud.geometry.boundingSphere
+        );
+        
+        console.log('Camera view reset to show entire point cloud');
+      } else {
+        console.warn('No point cloud to reset view for');
+      }
+    });
+
+  // Heatmap button - toggle height-based color
+  heatmapBtn.addEventListener('click', () => {
+    settings.useHeightColor = !settings.useHeightColor;
+    
+    const pointCloud = viewer.getPointCloud();
+    if (pointCloud) {
+      pointCloud.material.vertexColors = settings.useHeightColor;
+      if (!settings.useHeightColor) {
+        pointCloud.material.color.set(settings.pointColor);
+      }
+      pointCloud.material.needsUpdate = true;
+    }
+
+    // Toggle active state
+    heatmapBtn.classList.toggle('active', settings.useHeightColor);
+
+    // Update legend visibility
+    setLegendVisible(settings.useHeightColor);
+    
+    // Update GUI display
+    updateDisplay();
+  });
+
+  // Grid button - toggle grid visibility
+  gridBtn.addEventListener('click', () => {
+    settings.showGrid = !settings.showGrid;
+    grid.setGridVisible(settings.showGrid);
+    gridBtn.classList.toggle('active', settings.showGrid);
+    updateDisplay();
+  });
+
+  // Profile button - activate cross-section tool
+  profileBtn.addEventListener('click', () => {
+    if (profileSettings.profileTool) {
+      const isActive = !profileSettings.active;
+      
+      if (isActive) {
+        profileSettings.active = true;
+        
+        // Set callback to re-enable controls when drawing completes
+        profileSettings.profileTool.setOnDrawingComplete(() => {
+          // Re-enable OrbitControls after profile is drawn
+          const controls = viewer.getControls();
+          if (controls) {
+            controls.enabled = true;
+          }
+          // Keep the button active since profile is still visible
+        });
+        
+        profileSettings.profileTool.startDrawing();
+        stats.showDashboardMessage('✂️ Click twice to define profile line', 'info');
+        
+        // Disable OrbitControls while drawing
+        const controls = viewer.getControls();
+        if (controls) {
+          controls.enabled = false;
+        }
+      } else {
+        profileSettings.profileTool.clearProfile();
+        profileSettings.active = false;
+        
+        // Re-enable OrbitControls
+        const controls = viewer.getControls();
+        if (controls) {
+          controls.enabled = true;
+        }
+      }
+      
+      profileBtn.classList.toggle('active', isActive);
+      
+      // Deactivate measurement if it's active
+      if (isActive && measurementSettings.active) {
+        measurementSettings.active = false;
+        if (measurementSettings.measurementTool) {
+          measurementSettings.measurementTool.setActive(false);
+        }
+        measurementBtn.classList.remove('active');
+        
+        // Re-enable controls since we're switching tools
+        const controls = viewer.getControls();
+        if (controls) {
+          controls.enabled = true;
+        }
+      }
+    }
+  });
+
+  // Measurement button - activate measurement tool
+  measurementBtn.addEventListener('click', () => {
+    if (measurementSettings.measurementTool) {
+      measurementSettings.active = !measurementSettings.active;
+      measurementSettings.measurementTool.setActive(measurementSettings.active);
+      measurementBtn.classList.toggle('active', measurementSettings.active);
+      
+      // Update GUI display to sync the checkbox
+      updateDisplay();
+      
+      // Note: We keep OrbitControls enabled for measurement tool
+      // so users can navigate while measuring
+      
+      // Deactivate profile if it's active
+      if (measurementSettings.active && profileSettings.active) {
+        profileSettings.active = false;
+        if (profileSettings.profileTool) {
+          profileSettings.profileTool.clearProfile();
+        }
+        profileBtn.classList.remove('active');
+        
+        // Re-enable controls since profile is cleared
+        const controls = viewer.getControls();
+        if (controls) {
+          controls.enabled = true;
+        }
+      }
+    }
+  });
+
+  // Set initial states
+  heatmapBtn.classList.toggle('active', settings.useHeightColor);
+  gridBtn.classList.toggle('active', settings.showGrid);
+}
+
+/**
  * Initialiserer GUI
  */
 export function initGUI() {
+  // Initialize toolbar first
+  initToolbar();
+
   gui = new GUI();
   gui.title('Point Cloud Viewer');
   gui.close(); // Collapse main menu by default
@@ -389,6 +544,16 @@ function setupMeasurementGUI() {
   measurementFolder.add(measurementSettings, 'active').name('Activate Measurement').onChange((value) => {
     if (measurementSettings.measurementTool) {
       measurementSettings.measurementTool.setActive(value);
+
+      // Update toolbar button active state
+      const measurementBtn = document.getElementById('toolbar-measurement');
+      if (measurementBtn) {
+        if (value) {
+          measurementBtn.classList.add('active');
+        } else {
+          measurementBtn.classList.remove('active');
+        }
+      }
 
       // Measurement box shows automatically when a measurement is completed
       if (!value) {

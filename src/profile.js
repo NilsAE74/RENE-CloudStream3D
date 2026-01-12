@@ -884,6 +884,13 @@ export class ProfileTool {
   }
   
   /**
+   * Sets a callback to be called when profile drawing is complete
+   */
+  setOnDrawingComplete(callback) {
+    this.onDrawingComplete = callback;
+  }
+  
+  /**
    * Starts drawing mode
    */
   startDrawing() {
@@ -983,6 +990,11 @@ export class ProfileTool {
             this.profileThickness, 
             pointCloud
           );
+          
+          // Call completion callback if set
+          if (this.onDrawingComplete) {
+            this.onDrawingComplete();
+          }
           
           // Delay showing panel slightly to ensure click is fully processed
           setTimeout(() => {
