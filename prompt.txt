@@ -609,3 +609,46 @@ Gjør følgende endringer:
    - Sørg for at dette panelet legger seg pent over 3D-visningen uten å forstyrre museklikkene når man ikke holder over selve boksen.
 
 Implementer dette slik at jeg får umiddelbar feedback på dimensjonene jeg måler.
+
+
+Jeg vil rydde opp i og profesjonalisere `style.css`. Koden har blitt lagt til bitvis og trenger nå en totalrenovering for å bli konsistent og vedlikeholdbar.
+
+Opptre som en Senior UI/UX-utvikler og refaktorer hele `style.css`.
+
+**Følg denne strukturen og kravene:**
+
+1.  **CSS Variables (:root):**
+    * Etabler et "Design System" øverst i filen.
+    * **Farger:** Definer semantiske navn:
+        * `--bg-dark`: Mørk bakgrunn (f.eks. #1a1a1a).
+        * `--bg-panel`: Semitransparent overflate (f.eks. rgba(30, 30, 35, 0.85)).
+        * `--color-accent`: Hovedfarge for aktive elementer (f.eks. #0099ff).
+        * `--color-text-main`: Hovedtekst (f.eks. #f0f0f0).
+        * `--color-text-muted`: Sekundærtekst/labels (f.eks. #aaaaaa).
+        * `--color-success`, `--color-warning`, `--color-danger` (til delta-verdier osv.).
+    * **Spacing & Layout:** `--spacing-sm` (4px), `--spacing-md` (8px), `--spacing-lg` (16px), `--radius-std` (6px eller 8px).
+    * **Effekter:** `--backdrop-blur`: blur(10px).
+
+2.  **Global Reset & Typography:**
+    * Bruk en enkel reset (box-sizing: border-box).
+    * Sett font-family til system-ui, Inter eller Roboto (sans-serif).
+    * Sørg for at `body` og `html` fyller 100% uten scrollbars (overflow: hidden), siden dette er en 3D-app.
+
+3.  **UI Komponent-klasser (BEM-inspirert):**
+    * Lag en gjenbrukbar klasse `.glass-panel` som bruker variablene for bakgrunn, border og backdrop-filter. Alle flytende vinduer skal bruke denne.
+    * **Top Toolbar:** Sentrert, flexbox, pene hover-effekter på knappene.
+    * **Measurement & Stats Panels:** Disse skal se identiske ut. Bruk samme padding og typografi. Tittelen skal være tydelig (fet, litt større), og verdiene skal bruke monospaced font for tall.
+    * **Laste-skjerm:** Sørg for at overlayet dekker hele skjermen og ser pent ut med en spinner.
+
+4.  **Spesifikk Styling:**
+    * **Knapper:** Fjern standard browser-styling. Lag en `.btn-icon` klasse for verktøylinjen med transition på background-color og transform.
+    * **Canvas:** Skal ligge i bakgrunnen (`z-index: 0`).
+    * **UI Overlay:** Alle UI-elementer skal ha høyere z-index.
+
+5.  **lil-gui Overstyring:**
+    * Legg til CSS som tvinger `lil-gui` (.lil-gui.root) til å matche temaet vårt (endre bakgrunnsfarge, tekstfarge og accent-farge på sliderne) slik at den ikke ser ut som "standard plugin".
+
+6.  **Ryddighet:**
+    * Grupper koden logisk med kommentarer: `/* --- VARIABLES --- */`, `/* --- LAYOUT --- */`, `/* --- COMPONENTS --- */`.
+
+Vennligst skriv om `style.css` basert på dette, og sørg for at det eksisterende HTML-oppsettet (toolbar, stats, measurement) fortsatt fungerer perfekt med de nye klassene.
