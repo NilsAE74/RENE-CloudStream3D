@@ -718,6 +718,204 @@ canvas {
 }
 
 /* ================================
+   MEASUREMENT PANEL
+   ================================ */
+
+.measurement-panel {
+  position: absolute;
+  top: 79px;
+  left: 20px;
+  width: 280px;
+  height: 270px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-large);
+  padding: var(--padding-large);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  z-index: 100;
+  box-shadow: var(--shadow-medium);
+  transition: all 0.3s ease;
+}
+
+.measurement-panel:hover {
+  box-shadow: var(--shadow-large);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.measurement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--padding-standard);
+  padding-bottom: var(--padding-small);
+  border-bottom: 2px solid var(--accent-primary);
+}
+
+.measurement-title {
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+}
+
+.measurement-close-btn {
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  color: var(--text-primary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.measurement-close-btn:hover {
+  background: rgba(244, 67, 54, 0.3);
+  border-color: var(--error);
+  color: var(--error);
+  transform: rotate(90deg);
+}
+
+.measurement-main {
+  text-align: center;
+  margin: var(--padding-large) 0;
+  padding: var(--padding-standard);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.measurement-length-label {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.measurement-length-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  font-family: 'Roboto Mono', monospace;
+}
+
+.measurement-deltas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-small);
+}
+
+.measurement-delta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--padding-small);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.2s ease;
+}
+
+.measurement-delta-row:hover {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: var(--border-color);
+}
+
+.measurement-delta-label {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Color-coded delta labels to match 3D axes */
+.delta-x {
+  color: #ff6b6b; /* Red for X-axis */
+  text-shadow: 0 0 8px rgba(255, 107, 107, 0.4);
+}
+
+.delta-y {
+  color: #51cf66; /* Green for Y-axis */
+  text-shadow: 0 0 8px rgba(81, 207, 102, 0.4);
+}
+
+.delta-z {
+  color: #4dabf7; /* Blue for Z-axis (height) */
+  text-shadow: 0 0 8px rgba(77, 171, 247, 0.4);
+}
+
+.measurement-delta-value {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'Roboto Mono', monospace;
+}
+
+/* Color-coded delta values to match their labels */
+.measurement-delta-value.delta-x {
+  color: #ff6b6b; /* Red for X-axis */
+  text-shadow: 0 0 8px rgba(255, 107, 107, 0.4);
+}
+
+.measurement-delta-value.delta-y {
+  color: #51cf66; /* Green for Y-axis */
+  text-shadow: 0 0 8px rgba(81, 207, 102, 0.4);
+}
+
+.measurement-delta-value.delta-z {
+  color: #4dabf7; /* Blue for Z-axis */
+  text-shadow: 0 0 8px rgba(77, 171, 247, 0.4);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .measurement-panel {
+    bottom: 10px;
+    left: 10px;
+    width: 280px;
+    padding: 12px;
+  }
+  
+  .measurement-length-value {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .measurement-panel {
+    width: 250px;
+    padding: 10px;
+  }
+  
+  .measurement-title {
+    font-size: 14px;
+  }
+  
+  .measurement-length-value {
+    font-size: 20px;
+  }
+  
+  .measurement-delta-label,
+  .measurement-delta-value {
+    font-size: 12px;
+  }
+}
+
+/* ================================
    PROFILE PANEL
    ================================ */
 

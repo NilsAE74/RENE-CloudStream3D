@@ -63,6 +63,10 @@ export class MeasurementTool {
       // Legg til event listeners
       this.rendererElement.addEventListener('click', this.onMouseClickBound);
       this.rendererElement.addEventListener('mousemove', this.onMouseMoveBound);
+      
+      // Show measurement panel
+      this.showMeasurementPanel();
+      
       console.log('📏 Measurement tool activated');
     } else {
       // Fjern event listeners
@@ -71,6 +75,10 @@ export class MeasurementTool {
       
       // Fjern midlertidig geometri
       this.clearTemporaryGeometry();
+      
+      // Hide measurement panel
+      this.hideMeasurementPanel();
+      
       console.log('📏 Measurement tool deactivated');
     }
   }
@@ -283,6 +291,9 @@ export class MeasurementTool {
     
     console.log(`✓ Measurement saved (total ${this.measurements.length} measurements)`);
     
+    // Update measurement panel with the latest measurement
+    this.updateMeasurementPanel(measurement);
+    
     // Returner målingen for dashboard-oppdatering
     return measurement;
   }
@@ -329,6 +340,9 @@ export class MeasurementTool {
     this.isFirstPoint = true;
     this.startPoint = null;
     
+    // Reset panel display
+    this.resetMeasurementPanel();
+    
     console.log('✓ All measurements deleted');
   }
   
@@ -359,6 +373,87 @@ export class MeasurementTool {
    */
   render() {
     this.labelRenderer.render(this.scene, this.camera);
+  }
+  
+  /**
+   * Show measurement panel
+   */
+  showMeasurementPanel() {
+    const panel = document.getElementById('measurement-panel');
+    if (panel) {
+      panel.style.display = 'block';
+      
+      // Set up close button handler if not already set
+      const closeBtn = document.getElementById('measurement-close');
+      if (closeBtn && !closeBtn._hasClickHandler) {
+        closeBtn.addEventListener('click', () => {
+          this.hideMeasurementPanel();
+          // Deactivate tool when panel is closed
+          this.setActive(false);
+          
+          // Update toolbar button state
+          const measurementBtn = document.getElementById('toolbar-measurement');
+          if (measurementBtn) {
+            measurementBtn.classList.remove('active');
+          }
+        });
+        closeBtn._hasClickHandler = true;
+      }
+      
+      // Reset panel to default state
+      this.resetMeasurementPanel();
+    }
+  }
+  
+  /**
+   * Hide measurement panel
+   */
+  hideMeasurementPanel() {
+    const panel = document.getElementById('measurement-panel');
+    if (panel) {
+      panel.style.display = 'none';
+    }
+  }
+  
+  /**
+   * Reset measurement panel to default state
+   */
+  resetMeasurementPanel() {
+    const lengthEl = document.getElementById('measurement-length');
+    const deltaXEl = document.getElementById('measurement-delta-x');
+    const deltaYEl = document.getElementById('measurement-delta-y');
+    const deltaZEl = document.getElementById('measurement-delta-z');
+    
+    if (lengthEl) lengthEl.textContent = '--';
+    if (deltaXEl) deltaXEl.textContent = '--';
+    if (deltaYEl) deltaYEl.textContent = '--';
+    if (deltaZEl) deltaZEl.textContent = '--';
+  }
+  
+  /**
+   * Update measurement panel with measurement data
+   */
+  updateMeasurementPanel(measurement) {
+    const lengthEl = document.getElementById('measurement-length');
+    const deltaXEl = document.getElementById('measurement-delta-x');
+    const deltaYEl = document.getElementById('measurement-delta-y');
+    const deltaZEl = document.getElementById('measurement-delta-z');
+    
+    if (lengthEl) {
+      lengthEl.textContent = `${measurement.distance3D.toFixed(2)} m`;
+    }
+    
+    if (deltaXEl) {
+      deltaXEl.textContent = `${measurement.deltaX >= 0 ? '+' : ''}${measurement.deltaX.toFixed(3)} m`;
+    }
+    
+    if (deltaYEl) {
+      deltaYEl.textContent = `${measurement.deltaY >= 0 ? '+' : ''}${measurement.deltaY.toFixed(3)} m`;
+    }
+    
+    if (deltaZEl) {
+      deltaZEl.textContent = `${measurement.deltaZ >= 0 ? '+' : ''}${measurement.deltaZ.toFixed(3)} m`;
+    }
   }
   
   /**

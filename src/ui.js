@@ -186,6 +186,13 @@ export function initToolbar() {
       measurementSettings.measurementTool.setActive(measurementSettings.active);
       measurementBtn.classList.toggle('active', measurementSettings.active);
       
+      // Show/hide measurement panel
+      if (measurementSettings.active) {
+        measurementSettings.measurementTool.showMeasurementPanel();
+      } else {
+        measurementSettings.measurementTool.hideMeasurementPanel();
+      }
+      
       // Update GUI display to sync the checkbox
       updateDisplay();
       
@@ -555,10 +562,11 @@ function setupMeasurementGUI() {
         }
       }
 
-      // Measurement box shows automatically when a measurement is completed
-      if (!value) {
-        // Hide measurement box when tool is deactivated (optional)
-        // stats.showMeasurementSection(false);
+      // Show/hide measurement panel
+      if (value) {
+        measurementSettings.measurementTool.showMeasurementPanel();
+      } else {
+        measurementSettings.measurementTool.hideMeasurementPanel();
       }
     }
   });
