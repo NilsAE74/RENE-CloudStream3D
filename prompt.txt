@@ -675,3 +675,43 @@ Gjør følgende endringer i CSS og JS:
    - Sørg for at `measurement-panel`, `stats-panel` og `legend` har konsekvente marginer fra skjermkantene (f.eks. 20px).
 
 Gjør appen visuelt symmetrisk og konsistent nå.
+
+
+Jeg vil implementere funksjonalitet for å beregne og eksportere høydekurver (koter) fra punktskyen.
+
+Opprett en ny modul `src/contours.js` og gjør følgende:
+
+1.  **Grid-generering (Rasterisering):**
+    * Lag en funksjon `createElevationGrid(points, resolution)`.
+    * Del opp punktskyens BoundingBox i et rutenett basert på `resolution` (f.eks. 0.5m eller 1.0m).
+    * For hver celle i rutenettet: Finn gjennomsnittlig Z-verdi av punktene som faller inni. Hvis en celle er tom, marker den som 'undefined' (vi vil ikke tegne kurver der det mangler data).
+
+2. **Støyreduksjon og Glatting (Smoothing Pass):**
+    * Før du genererer kotene, må gridet "vaskes" for å skape myke kurver.
+    * Implementer en funksjon `smoothGrid(grid, iterations)`.
+    * Bruk en **3x3 Box Blur** eller **Gaussian Blur** algoritme: For hver celle, sett verdien til gjennomsnittet av seg selv og sine 8 naboer.
+    * Gjør dette konfigurerbart (f.eks. kjør loopen 2 eller 3 ganger) for å gjøre terrenget mykere og fjerne "spikes" fra støypunkter.
+
+3. **Algoritme (Connected Marching Squares):**
+    * Bruk Marching Squares med **Lineær Interpolasjon** (for å finne nøyaktig krysningspunkt på cellekantene).
+    * **Viktig - Sammenhengende linjer:**
+        * I stedet for å bare spytte ut en liste med løse linjesegmenter (A-B, C-D), må du implementere logikk som kobler dem sammen til **Polylines**.
+        * Logikk: Start en linje, finn hvilken kant den går ut av, finn nabocellen som deler denne kanten, og fortsett linjen derfra til den enten lukkes (loop) eller treffer kanten av kartet.
+        * Lagre resultatet som arrays av Vector3-punkter: `[ [x,y,z], [x,y,z], ... ]`.
+
+4. **DXF-eksport (LWPOLYLINE):**
+    * Oppdater DXF-generatoren til å bruke `LWPOLYLINE` (Lightweight Polyline) i stedet for enkle `LINE`-entiteter.
+    * Dette gjør at ingeniøren kan klikke på én kote i AutoCAD og velge hele høydenivået, i stedet for å måtte velge tusenvis av små streker.
+    * Husk å legge til `elevation` (høyde) som en property på hver Polyline i DXF-filen, slik at de havner i riktig 3D-høyde i CAD.
+
+5.  **UI Integrasjon (src/ui.js):**
+    * Legg til en mappe "Høydekurver / Contours".
+    * Input: "Ekvidistanse" (Interval), default 1.0m.
+    * Input: "Oppløsning" (Grid Resolution), default 0.5m.
+    * Knapp: "Forhåndsvis i 3D" (Tegn linjene som `THREE.LineSegments` i gult oppå modellen).
+    * Knapp: "Last ned DXF".
+
+6.  **Ytelse:**
+    * Dette kan være tungt. Sørg for at beregningen ikke fryser nettleseren (bruk gjerne `async`/`await` eller del opp loopen hvis mulig).
+
+Målet er at jeg kan laste inn en sky, velge ekvidistanse, og laste ned en fil jeg kan sende rett til et CAD verktøy.

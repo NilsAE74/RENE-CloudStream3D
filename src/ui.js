@@ -234,6 +234,7 @@ export function initGUI() {
   gui.domElement.style.position = 'absolute';
   gui.domElement.style.top = '20px';
   gui.domElement.style.right = '20px';
+  gui.domElement.classList.add('glass-panel');
 
   // Point cloud settings folder
   pointFolder = gui.addFolder('⚙️ Point Cloud Settings');
