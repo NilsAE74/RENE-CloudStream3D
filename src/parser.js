@@ -1,89 +1,121 @@
 import * as THREE from 'three';
 
 /**
- * Parser for XYZ-filer
- * Leser fil-innhold og konverterer til Three.js-geometri med farger
+ * Optimalisert parser for XYZ-filer
+ * Bruker TypedArrays og unngår String.split() for å spare minne.
  */
 export function parseXYZFile(content) {
-  const lines = content.split('\n');
-  const positions = [];
-  const colors = [];
-  
+  const len = content.length;
+
+  // 1. Estimer antall punkter for å pre-allokere minne.
+  // En typisk XYZ-linje er kanskje 25-50 bytes. Vi gjetter konservativt for å unngå resizing.
+  // Det er raskere å ha for mye minne og slice det etterpå, enn å growe arrayet.
+  const estimatedPoints = Math.ceil(len / 20);
+
+  // Alloker TypedArrays (mye raskere enn vanlige arrays)
+  let positions = new Float32Array(estimatedPoints * 3);
+  let colors = new Float32Array(estimatedPoints * 3);
+
+  let pIndex = 0; // Peker til hvor vi er i positions-arrayet
   let minX = Infinity, maxX = -Infinity;
   let minY = Infinity, maxY = -Infinity;
   let minZ = Infinity, maxZ = -Infinity;
-  
-  // Første pass: finn min/max for alle akser
-  const tempPoints = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue; // Hopp over tomme linjer og kommentarer
-    
-    const parts = trimmed.split(/\s+/);
-    if (parts.length >= 3) {
-      const x = parseFloat(parts[0]);
-      const y = parseFloat(parts[1]);
-      const z = parseFloat(parts[2]);
-      
-      if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-        tempPoints.push({ x, y, z });
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
-        minZ = Math.min(minZ, z);
-        maxZ = Math.max(maxZ, z);
-      }
+
+  // Regex for å finne tall. Dette er ofte raskere enn manuell parsing i JS for store strenger
+  // fordi V8 sin regex-motor er skrevet i C++.
+  // Matcher: (tall) mellomrom (tall) mellomrom (tall)
+  const lineRegex = /([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/g;
+
+  let match;
+
+  // --- PASS 1: Parse tekst til tall ---
+  // Vi kjører regex i en løkke. exec() returnerer neste match uten å lage en gigantisk array.
+  while ((match = lineRegex.exec(content)) !== null) {
+    const x = parseFloat(match[1]);
+    const y = parseFloat(match[2]);
+    const z = parseFloat(match[3]);
+
+    // Utvid arrays hvis estimatet var for lavt
+    if (pIndex + 3 >= positions.length) {
+      const newPos = new Float32Array(positions.length * 2);
+      newPos.set(positions);
+      positions = newPos;
+
+      const newCol = new Float32Array(colors.length * 2);
+      newCol.set(colors);
+      colors = newCol;
     }
+
+    positions[pIndex] = x;
+    positions[pIndex + 1] = y;
+    positions[pIndex + 2] = z;
+
+    // Oppdater bounds "inline" for å unngå en ekstra loop
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+    if (z < minZ) minZ = z;
+    if (z > maxZ) maxZ = z;
+
+    pIndex += 3;
   }
-  
-  console.log(`Antall punkter funnet: ${tempPoints.length}`);
-  console.log(`X range: ${minX.toFixed(2)} til ${maxX.toFixed(2)}`);
-  console.log(`Y range: ${minY.toFixed(2)} til ${maxY.toFixed(2)}`);
-  console.log(`Z range: ${minZ.toFixed(2)} til ${maxZ.toFixed(2)}`);
-  
-  // Andre pass: opprett posisjon og farge-arrays
-  const zRange = maxZ - minZ || 1; // Unngå divisjon med null
-  
-  for (const point of tempPoints) {
-    positions.push(point.x, point.y, point.z);
-    
-    // Fargelegg basert på Z-verdi (gradient fra blå til rød)
-    const normalizedZ = (point.z - minZ) / zRange;
-    const color = new THREE.Color();
-    color.setHSL(0.6 - normalizedZ * 0.6, 1.0, 0.5); // Blå (0.6) til rød (0.0)
-    colors.push(color.r, color.g, color.b);
+
+  const count = pIndex / 3;
+
+  // Trim arrays ned til faktisk størrelse
+  positions = positions.slice(0, pIndex);
+  colors = colors.slice(0, pIndex);
+
+  console.log(`Parsed ${count} points. Z-Range: ${minZ} to ${maxZ}`);
+
+  // --- PASS 2: Fargelegging (Lynraskt siden vi jobber med tall) ---
+  const zRange = maxZ - minZ || 1;
+  const tempColor = new THREE.Color(); // Gjenbruk objektet for å spare GC
+
+  for (let i = 0; i < pIndex; i += 3) {
+    const z = positions[i + 2];
+    const normalizedZ = (z - minZ) / zRange;
+
+    // Blå (0.6) til Rød (0.0)
+    tempColor.setHSL(0.6 - normalizedZ * 0.6, 1.0, 0.5);
+
+    colors[i] = tempColor.r;
+    colors[i + 1] = tempColor.g;
+    colors[i + 2] = tempColor.b;
   }
-  
-  return { 
-    positions, 
-    colors, 
-    count: tempPoints.length,
+
+  return {
+    positions, // Returnerer nå Float32Array direkte
+    colors,    // Returnerer Float32Array direkte
+    count,
     bounds: { minX, maxX, minY, maxY, minZ, maxZ }
   };
 }
 
-/**
- * Sentrer posisjon-array rundt origo for bedre WebGL-presisjon
- * Returnerer sentrerte posisjoner og offset-verdiene
- */
 export function centerPositions(positions, bounds) {
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerY = (bounds.minY + bounds.maxY) / 2;
   const centerZ = (bounds.minZ + bounds.maxZ) / 2;
-  
-  console.log(`Sentrerer punktsky. Offset: (${centerX.toFixed(2)}, ${centerY.toFixed(2)}, ${centerZ.toFixed(2)})`);
-  
+
+  console.log(`Centering offset: ${centerX}, ${centerY}, ${centerZ}`);
+
+  // Hvis positions allerede er Float32Array, er dette raskt.
+  // Vi kan modifisere in-place for å spare 50% minne:
+  // const centeredPositions = positions;
+
+  // ELLER lage kopi for sikkerhets skyld (men bruk samme type):
   const centeredPositions = new Float32Array(positions.length);
+
   for (let i = 0; i < positions.length; i += 3) {
     centeredPositions[i] = positions[i] - centerX;
     centeredPositions[i + 1] = positions[i + 1] - centerY;
     centeredPositions[i + 2] = positions[i + 2] - centerZ;
   }
-  
-  return { 
-    centeredPositions, 
-    offset: { x: centerX, y: centerY, z: centerZ } 
+
+  return {
+    centeredPositions,
+    offset: { x: centerX, y: centerY, z: centerZ }
   };
 }
 
