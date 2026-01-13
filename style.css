@@ -709,70 +709,88 @@ canvas {
    COMPONENTS - HISTOGRAM
    ============================================================================= */
 
-.histogram-section {
-  margin-top: var(--spacing-lg);
+/* --- Histogram --- */
+.histogram-container {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.histogram-title {
+  font-size: var(--font-size-title);
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .histogram {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-end; /* Justerer søylene til bunnen */
   justify-content: space-between;
-  height: 120px;
-  margin-top: var(--spacing-sm);
-  padding: var(--spacing-sm);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.4));
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-std);
-  gap: 3px;
-  backdrop-filter: blur(5px);
+  height: 80px; /* Fast høyde på hele histogram-området */
+  padding-top: 15px; /* Litt luft i toppen for range-teksten */
+  gap: 2px; /* Lite mellomrom mellom søylene */
 }
 
-.histogram-bar-container {
-  flex: 1;
+/* Ny container for hver søyle (inkluderer søyle + tekst under) */
+.histogram-column {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-end;
   height: 100%;
+  flex-grow: 1;
   position: relative;
 }
 
 .histogram-bar {
   width: 100%;
-  border: none;
-  border-radius: 3px 3px 0 0;
-  position: relative;
-  min-height: 3px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  transition: all 0.3s ease;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.3s ease, background-color 0.2s;
+  position: relative; /* Viktig for at teksten over skal posisjoneres riktig */
+  min-height: 1px; /* Sikrer at søylen vises selv om verdien er 0 */
 }
 
-.histogram-bar-container:hover .histogram-bar {
+.histogram-bar:hover {
   filter: brightness(1.2);
-  transform: scaleY(1.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-.bar-count {
-  font-size: var(--font-size-xs);
-  font-family: var(--font-mono);
-  color: var(--color-text-dark);
-  /*text-shadow: 0 0 1px rgba(255, 255, 255, 0.9);*/
-  margin-top: 7px;
-  text-align: right;
-  font-weight: 600;
-  transform: rotate(-90deg);
-}
-
-.bar-label {
-  font-size: var(--font-size-xxs);
-  font-family: var(--font-mono);
-  color: var(--color-text-muted);
-  margin-top: 2px;
-  text-align: center;
+/* Range-teksten som svever OVER søylen */
+.histogram-range-label {
+  position: absolute;
+  bottom: 100%; /* Plasserer den rett over toppen av søylen */
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: var(--color-text-main);
   white-space: nowrap;
-  font-weight: 500;
+  margin-bottom: 2px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8); /* Skygge for lesbarhet */
+  opacity: 0; /* Skjul som standard hvis det blir for rotete */
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Vis range-tekst når man holder over søylen (eller fjern :hover for å vise alltid) */
+.histogram-column:hover .histogram-range-label {
+  opacity: 1;
+}
+
+/* Hvis du vil at Range ALLTID skal synes, endre opacity til 1 over,
+   men det kan bli trangt hvis søylene er smale. */
+
+/* Antall-teksten som står UNDER søylen */
+.histogram-count-label {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  /* Roter teksten hvis det er trangt om plassen */
+  transform: rotate(-45deg);
+  transform-origin: center center;
+  text-align: center;
 }
 
 

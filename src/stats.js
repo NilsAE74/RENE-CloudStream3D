@@ -340,28 +340,45 @@ function createHistogramBars(histogram, minZ, maxZ) {
   const numBins = histogram.length;
   const binSize = (maxZ - minZ) / numBins;
 
-  let html = '';
-
+  // Create bins array with proper structure
+  const bins = [];
   for (let i = 0; i < histogram.length; i++) {
     const count = histogram[i];
-    const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
     const binStart = minZ + (i * binSize);
     const binEnd = binStart + binSize;
-    
-    // Calculate average Z-value for this bin and get corresponding color
-    const avgZ = (binStart + binEnd) / 2;
-    const color = getColorForZ(avgZ, minZ, maxZ);
+
+    bins.push({
+      min: binStart,
+      max: binEnd,
+      count: count,
+      range: `${binStart.toFixed(1)}-${binEnd.toFixed(1)}`
+    });
+  }
+
+  let html = '';
+
+  // 3. Generer HTML for søylene
+  bins.forEach(bin => {
+    // Beregn høyde (minst 1% så den synes)
+    const heightPercentage = maxCount > 0 ? (bin.count / maxCount) * 100 : 0;
+    const height = Math.max(heightPercentage, 1);
+
+    // Farge
+    const color = getColorForZ((bin.min + bin.max) / 2, minZ, maxZ);
     const cssColor = colorToCSS(color);
 
     html += `
-      <div class="histogram-bar-container" title="${count.toLocaleString('nb-NO')} points (${binStart.toFixed(2)} - ${binEnd.toFixed(2)} m)">
-        <div class="histogram-bar" style="height: ${percentage}%; background-color: ${cssColor};">
-          <span class="bar-count">${count > 0 ? formatCount(count) : ''}</span>
+      <div class="histogram-column">
+
+        <div class="histogram-bar" style="height: ${height}%; background-color: ${cssColor};">
+            <span class="histogram-range-label">${bin.range}</span>
         </div>
-        <span class="bar-label">${binStart.toFixed(1)}</span>
+
+        <span class="histogram-count-label">${formatCount(bin.count)}</span>
+
       </div>
     `;
-  }
+  });
 
   return html;
 }
