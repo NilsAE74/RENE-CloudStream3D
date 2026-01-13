@@ -284,8 +284,8 @@ export class PointCloudViewer {
         if (this.axesHelper) this.axesHelper.visible = false;
 
         // VISIBILITY BOOST: Øk punktstørrelse betydelig for tydeligere punkter
-        //this.pointCloud.material.size = originalPointSize * 10;
-        if (pointResolution !== null) {
+        // Sjekk at pointResolution faktisk er et tall (ikke null/undefined)
+        if (pointResolution && !isNaN(pointResolution)) {
           this.pointCloud.material.size = pointResolution * 10;
         } else {
           this.pointCloud.material.size = originalPointSize * 10;  // Fallback
@@ -305,18 +305,19 @@ export class PointCloudViewer {
       const tempColor = new THREE.Color();
       const hsl = {}; // Objekt for å lagre HSL verdier
 
+      // FARGE-FIX: Bruk Three.js sin innebygde funksjonalitet (Mye raskere og tryggere)
       for (let i = 0; i < colors.length; i += 3) {
-        // 1. Last inn farge
+        // 1. Les nåværende farge
         tempColor.setRGB(colors[i], colors[i + 1], colors[i + 2]);
 
-        // 2. Hent HSL
+        // 2. Konverter til HSL
         tempColor.getHSL(hsl);
 
-        // 3. Juster metning og lysstyrke (Boost)
-        // Behold hue (hsl.h), sett metning til 1.0, lysstyrke til 0.35
+        // 3. Øk "trykket" i fargene for PDF (Maks metning, mørkere tone)
+        // Behold hue (hsl.h), sett saturation til 1.0, lightness til 0.35
         tempColor.setHSL(hsl.h, 1.0, 0.35);
 
-        // 4. Skriv tilbake
+        // 4. Skriv tilbake til arrayet
         colors[i] = tempColor.r;
         colors[i + 1] = tempColor.g;
         colors[i + 2] = tempColor.b;
