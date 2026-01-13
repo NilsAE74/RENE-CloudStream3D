@@ -784,72 +784,18 @@ export class DraggablePanel {
   }
 }
 
-/**
- * Dashboard Minimize/Collapse Funksjonalitet
- */
-class CollapsibleDashboard {
-  constructor(dashboardElement) {
-    this.dashboard = dashboardElement;
-    this.isMinimized = false;
-    this.setupCollapse();
-  }
-  
-  setupCollapse() {
-    // Legg til minimize knapp i dashboard header
-    const header = this.dashboard.querySelector('h3');
-    if (!header) return;
-    
-    // Wrap dashboard innhold i en container
-    const content = document.createElement('div');
-    content.className = 'dashboard-content';
-    
-    // Flytt alt etter header til content container
-    while (header.nextSibling) {
-      content.appendChild(header.nextSibling);
-    }
-    
-    this.dashboard.appendChild(content);
-    
-    // Legg til minimize knapp
-    const minimizeBtn = document.createElement('button');
-    minimizeBtn.className = 'dashboard-minimize-btn';
-    minimizeBtn.innerHTML = '−';
-    minimizeBtn.title = 'Minimize panel';
-    header.appendChild(minimizeBtn);
-    
-    minimizeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleMinimize();
-    });
-  }
-  
-  toggleMinimize() {
-    this.isMinimized = !this.isMinimized;
-    const minimizeBtn = this.dashboard.querySelector('.dashboard-minimize-btn');
-    
-    if (this.isMinimized) {
-      this.dashboard.classList.add('minimized');
-      minimizeBtn.innerHTML = '+';
-      minimizeBtn.title = 'Expand panel';
-    } else {
-      this.dashboard.classList.remove('minimized');
-      minimizeBtn.innerHTML = '−';
-      minimizeBtn.title = 'Minimize panel';
-    }
-  }
-}
 
 // Initialiser draggable paneler når DOM er klar
 export function initDraggablePanels() {
-  // Gjør dashboard flyttbar og collapsable
+  // Gjør dashboard flyttbar
   const dashboard = document.getElementById('dashboard');
   if (dashboard) {
     new DraggablePanel(dashboard, dashboard.querySelector('h3'));
-    new CollapsibleDashboard(dashboard);
   }
-  
+
   // Measurement panel initialiseres når det vises i measurement.js
   // Profile panel har allerede drag funksjonalitet i profile.js
+  // Dashboard minimize funksjonalitet håndteres i stats.js når innhold lastes
   console.log('Draggable panels initialized');
 }
 

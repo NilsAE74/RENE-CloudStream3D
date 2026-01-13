@@ -10,6 +10,7 @@ let currentMetadata = {
   datum: 'ED50',
   projection: 'UTM 32N'
 };
+let isDashboardMinimized = false;
 
 /**
  * Initialiserer dashboard
@@ -42,7 +43,7 @@ export function updateDashboard(pointCount, bounds, positions, fileName = '') {
   
   // Create HTML for dashboard
   const html = `
-    <h3>📊 Point Cloud Statistics</h3>
+    <h3>📊 Point Cloud Statistics<button class="dashboard-minimize-btn" title="Minimize panel">−</button></h3>
 
     ${currentFileName ? `
     <div class="stat-row">
@@ -81,6 +82,15 @@ export function updateDashboard(pointCount, bounds, positions, fileName = '') {
   
   dashboardElement.innerHTML = html;
   dashboardElement.style.display = 'block';
+
+  // Add minimize button functionality
+  const minimizeBtn = dashboardElement.querySelector('.dashboard-minimize-btn');
+  if (minimizeBtn) {
+    minimizeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDashboardMinimize(dashboardElement);
+    });
+  }
 
   // Returner resolution for bruk i rapport
   return resolution;
@@ -130,6 +140,29 @@ export function updateMetadata(metadata) {
 export function clearDashboard() {
   if (!dashboardElement) return;
   dashboardElement.innerHTML = '<p class="no-data">Upload a point cloud to see statistics</p>';
+  isDashboardMinimized = false; // Reset minimize state
+}
+
+/**
+ * Toggles dashboard minimize state
+ */
+function toggleDashboardMinimize(dashboard) {
+  isDashboardMinimized = !isDashboardMinimized;
+  const minimizeBtn = dashboard.querySelector('.dashboard-minimize-btn');
+
+  if (isDashboardMinimized) {
+    dashboard.classList.add('minimized');
+    if (minimizeBtn) {
+      minimizeBtn.innerHTML = '+';
+      minimizeBtn.title = 'Expand panel';
+    }
+  } else {
+    dashboard.classList.remove('minimized');
+    if (minimizeBtn) {
+      minimizeBtn.innerHTML = '−';
+      minimizeBtn.title = 'Minimize panel';
+    }
+  }
 }
 
 /**
