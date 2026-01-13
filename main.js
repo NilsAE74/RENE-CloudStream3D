@@ -11,6 +11,7 @@ import * as stats from './src/stats.js';
 import * as grid from './src/grid.js';
 import { MeasurementTool } from './src/measurement.js';
 import { ProfileTool } from './src/profile.js';
+import { initDraggablePanels } from './src/ui.js';
 
 // Global variabel for å spore om brukeren har lastet en fil
 let hasUserUploadedFile = false;
@@ -45,6 +46,9 @@ stats.initDashboard();
 
 // Oppdater visningen av upload-knapper ved oppstart
 updateUploadButtonVisibility();
+
+// Initialiser draggable panels
+initDraggablePanels();
 
 // Initialiser Selection Box
 const { selectionBox, transformControls } = selection.initSelectionBox(
@@ -88,6 +92,8 @@ const profileTool = new ProfileTool({ x: 0, y: 0, z: 0 });
 
 // Sett referanse til profile tool
 ui.setProfileTool(profileTool);
+
+
 
 // Wrapper for completeMeasurement som også oppdaterer dashboard
 const originalCompleteMeasurement = measurementTool.completeMeasurement.bind(measurementTool);

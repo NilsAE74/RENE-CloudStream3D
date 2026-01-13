@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { DraggablePanel } from './ui.js';
 
 /**
  * MeasurementTool - Verktøy for å måle avstander mellom punkter i 3D
@@ -382,7 +383,13 @@ export class MeasurementTool {
     const panel = document.getElementById('measurement-panel');
     if (panel) {
       panel.style.display = 'block';
-      
+
+      // Initialiser drag funksjonalitet første gang panelet vises
+      if (!panel._dragInitialized) {
+        new DraggablePanel(panel, panel.querySelector('.measurement-header'));
+        panel._dragInitialized = true;
+      }
+
       // Set up close button handler if not already set
       const closeBtn = document.getElementById('measurement-close');
       if (closeBtn && !closeBtn._hasClickHandler) {

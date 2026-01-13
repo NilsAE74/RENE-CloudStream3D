@@ -192,6 +192,46 @@ canvas {
   }
 }
 
+/* =============================================================================
+   COMPONENTS - TOOLTIPS
+   ============================================================================= */
+
+   .btn-icon[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: var(--z-overlay);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .btn-icon[data-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+    z-index: var(--z-overlay);
+  }
+
 /* Primary Button (upload style) */
 .btn-primary {
   padding: var(--spacing-md) var(--spacing-xl);
@@ -402,13 +442,14 @@ canvas {
    ============================================================================= */
 
 .measurement-panel {
-  position: absolute;
+  position: fixed;
   top: 79px;
   left: 20px;
   width: 280px;
   height: 300px;
   padding: var(--spacing-lg);
   z-index: var(--z-ui);
+  cursor: move;
 
   .measurement-header {
     display: flex;
@@ -417,6 +458,8 @@ canvas {
     margin-bottom: var(--spacing-md);
     padding-bottom: var(--spacing-sm);
     border-bottom: 2px solid var(--color-accent);
+    cursor: move;
+    user-select: none;
   }
 
   .measurement-title {

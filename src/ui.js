@@ -705,6 +705,155 @@ export function setLegendVisible(visible) {
 }
 
 /**
+ * Draggable Panel System
+ * Gjør paneler flyttbare med drag & drop funksjonalitet
+ */
+
+export class DraggablePanel {
+  constructor(panelElement, handleElement = null) {
+    this.panel = panelElement;
+    this.handle = handleElement || panelElement; // Bruk hele panelet som handle hvis ikke spesifisert
+    this.isDragging = false;
+    this.dragStartX = 0;
+    this.dragStartY = 0;
+    this.dragInitialX = 0;
+    this.dragInitialY = 0;
+    
+    this.setupDragging();
+  }
+  
+  setupDragging() {
+    const onMouseDown = (e) => {
+      // Ikke drag hvis klikk på interaktive elementer
+      if (e.target.closest('button, input, select, textarea, .btn-icon, .measurement-close-btn')) {
+        return;
+      }
+      
+      this.isDragging = true;
+      this.dragStartX = e.clientX;
+      this.dragStartY = e.clientY;
+      
+      const rect = this.panel.getBoundingClientRect();
+      this.dragInitialX = rect.left;
+      this.dragInitialY = rect.top;
+      
+      document.body.style.cursor = 'move';
+      document.body.style.userSelect = 'none';
+      
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      
+      e.preventDefault();
+    };
+    
+    const onMouseMove = (e) => {
+      if (!this.isDragging) return;
+      
+      const deltaX = e.clientX - this.dragStartX;
+      const deltaY = e.clientY - this.dragStartY;
+      
+      const newLeft = this.dragInitialX + deltaX;
+      const newTop = this.dragInitialY + deltaY;
+      
+      // Begrens til viewport
+      const maxLeft = window.innerWidth - this.panel.offsetWidth;
+      const maxTop = window.innerHeight - this.panel.offsetHeight;
+      
+      const constrainedLeft = Math.max(0, Math.min(newLeft, maxLeft));
+      const constrainedTop = Math.max(0, Math.min(newTop, maxTop));
+      
+      // Oppdater posisjon
+      this.panel.style.left = `${constrainedLeft}px`;
+      this.panel.style.top = `${constrainedTop}px`;
+      this.panel.style.bottom = 'auto'; // Fjern fixed bottom
+      this.panel.style.transform = 'none';
+      
+      e.preventDefault();
+    };
+    
+    const onMouseUp = () => {
+      this.isDragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    
+    this.handle.addEventListener('mousedown', onMouseDown);
+  }
+}
+
+/**
+ * Dashboard Minimize/Collapse Funksjonalitet
+ */
+class CollapsibleDashboard {
+  constructor(dashboardElement) {
+    this.dashboard = dashboardElement;
+    this.isMinimized = false;
+    this.setupCollapse();
+  }
+  
+  setupCollapse() {
+    // Legg til minimize knapp i dashboard header
+    const header = this.dashboard.querySelector('h3');
+    if (!header) return;
+    
+    // Wrap dashboard innhold i en container
+    const content = document.createElement('div');
+    content.className = 'dashboard-content';
+    
+    // Flytt alt etter header til content container
+    while (header.nextSibling) {
+      content.appendChild(header.nextSibling);
+    }
+    
+    this.dashboard.appendChild(content);
+    
+    // Legg til minimize knapp
+    const minimizeBtn = document.createElement('button');
+    minimizeBtn.className = 'dashboard-minimize-btn';
+    minimizeBtn.innerHTML = '−';
+    minimizeBtn.title = 'Minimize panel';
+    header.appendChild(minimizeBtn);
+    
+    minimizeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleMinimize();
+    });
+  }
+  
+  toggleMinimize() {
+    this.isMinimized = !this.isMinimized;
+    const minimizeBtn = this.dashboard.querySelector('.dashboard-minimize-btn');
+    
+    if (this.isMinimized) {
+      this.dashboard.classList.add('minimized');
+      minimizeBtn.innerHTML = '+';
+      minimizeBtn.title = 'Expand panel';
+    } else {
+      this.dashboard.classList.remove('minimized');
+      minimizeBtn.innerHTML = '−';
+      minimizeBtn.title = 'Minimize panel';
+    }
+  }
+}
+
+// Initialiser draggable paneler når DOM er klar
+export function initDraggablePanels() {
+  // Gjør dashboard flyttbar og collapsable
+  const dashboard = document.getElementById('dashboard');
+  if (dashboard) {
+    new DraggablePanel(dashboard, dashboard.querySelector('h3'));
+    new CollapsibleDashboard(dashboard);
+  }
+  
+  // Measurement panel initialiseres når det vises i measurement.js
+  // Profile panel har allerede drag funksjonalitet i profile.js
+  console.log('Draggable panels initialized');
+}
+
+/**
  * Sets reference to measurement tool
  */
 export function setMeasurementTool(tool) {
