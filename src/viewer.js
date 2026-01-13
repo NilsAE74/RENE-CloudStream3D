@@ -322,7 +322,7 @@ export class PointCloudViewer {
         colors[i + 1] = tempColor.g;
         colors[i + 2] = tempColor.b;
       }
-      pointCloud.geometry.attributes.color.needsUpdate = true;
+      this.pointCloud.geometry.attributes.color.needsUpdate = true;
 
         // === 3. Beregn bounds for ortografisk kamera ===
         this.pointCloud.geometry.computeBoundingBox();
