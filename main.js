@@ -235,11 +235,7 @@ async function loadDefaultCloud() {
 
     // Oppdater upload knapp visning etter default terreng er lastet
     updateUploadButtonVisibility();
-
-    // Show brief info about measurement tool
-    setTimeout(() => {
-      stats.showDashboardMessage('💡 The measurement tool is ready! Activate it in GUI (📏 Measurement Tool)', 'info');
-    }, 3000);
+   
     
   } catch (error) {
     console.error('Error loading default point cloud:', error);
