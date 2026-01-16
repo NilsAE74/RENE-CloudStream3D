@@ -1218,7 +1218,7 @@ body.dragging::before {
   }
 
   .height-legend {
-    width: 75px;
+    width: 100px;
     font-size: var(--font-size-xs);
   }
 
@@ -1259,7 +1259,7 @@ body.dragging::before {
   .height-legend {
     bottom: 10px;
     right: 10px;
-    width: 70px;
+    width: 100px;
     padding: 10px;
   }
 
@@ -1361,12 +1361,12 @@ body.dragging::before {
   }
 
   .height-legend {
-    width: 60px;
+    width: 100px;
     padding: var(--spacing-sm);
   }
 
   .legend-gradient {
-    width: 24px;
+    width: 32px;
   }
 
   .legend-scale {
