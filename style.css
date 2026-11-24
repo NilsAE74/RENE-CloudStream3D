@@ -1434,3 +1434,32 @@ body.dragging::before {
     max-height: 55vh;
   }
 }
+
+/* Versjonsetikett (src/version.js) */
+.version-label {
+  position: fixed;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-ui);
+  font-family: var(--font-family);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  text-decoration: none;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.version-label:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Smale skjermer: dashboard og legende fyller bunnen, så etiketten skjules
+   (versjonen står fortsatt i konsollen og i PDF-rapporten). Målt: overlapp ved 800 px. */
+@media (max-width: 900px) {
+  .version-label {
+    display: none;
+  }
+}

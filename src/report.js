@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import * as viewer from './viewer.js';
 import { getFileName } from './stats.js';
 import * as colorScale from './colorScale.js';
+import { VERSION_TEXT } from './version.js';
 
 // Konstanter
 const PAGE_WIDTH = 210;
@@ -336,6 +337,7 @@ function addFooter(pdf) {
     pdf.setFontSize(8);
     pdf.setTextColor(150, 150, 150);
     pdf.text(`Side ${i} av ${pages}`, PAGE_WIDTH / 2, PAGE_HEIGHT - 10, { align: 'center' });
+    pdf.text(VERSION_TEXT, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
   }
 }
 
