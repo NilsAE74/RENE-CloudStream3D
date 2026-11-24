@@ -221,12 +221,12 @@ export function saveSelectedPoints(pointCloud, boxSettings) {
         Math.abs(localY) <= 0.5 &&
         Math.abs(localZ) <= 0.5) {
       
-      // Konverter tilbake til originale koordinater før eksport (2 desimaler)
+      // Konverter tilbake til originale koordinater før eksport (3 desimaler = mm)
       const originalX = x + coordinateOffset.x;
       const originalY = y + coordinateOffset.y;
       const originalZ = z + coordinateOffset.z;
       
-      selectedPoints.push(`${originalX.toFixed(2)} ${originalY.toFixed(2)} ${originalZ.toFixed(2)}`);
+      selectedPoints.push(`${originalX.toFixed(3)} ${originalY.toFixed(3)} ${originalZ.toFixed(3)}`);
     }
   }
   
