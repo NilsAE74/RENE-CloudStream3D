@@ -36,7 +36,7 @@ Applikasjonen er deployet og tilgjengelig på:
 
 ### Forutsetninger
 
-- Node.js (versjon 18 eller nyere)
+- Node.js (versjon 20.19 eller nyere, anbefalt 22)
 - npm (følger med Node.js)
 
 ### Oppsett

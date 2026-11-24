@@ -20,7 +20,7 @@ npm test           # parser-tester (node --test)
 
 ## Deploy
 
-- `.github/workflows/deploy.yml`: push til `main` → `npm ci` + `npm run build` → GitHub Pages (Node 18).
+- `.github/workflows/deploy.yml`: push til `main` → `npm ci` + `npm run build` → GitHub Pages (Node 22; Vite 7 krever Node 20.19 eller nyere).
 - `vite.config.js` har `base: '/RENE-CloudStream3D/'`. Må matche repo-navnet, ellers svart skjerm/404 på assets i produksjon.
 - Versjon: `vite.config.js` setter `__APP_COMMIT__` (fra `GITHUB_SHA` i Actions, ellers `git rev-parse`; `-dirty` ved lokale endringer) og `__APP_BUILD_TIME__` via `define`. `package.json`-versjonen (`0.0.0`) brukes ikke. Vises i appen og i PDF-rapporten, så man kan se hvilken commit som kjører.
 - Statiske filer (logoer) ligger i `public/` og refereres med absolutt sti (`/RENElogo.png` o.l.).
