@@ -27,10 +27,14 @@ export function parseXYZFile(content) {
   let minY = Infinity, maxY = -Infinity;
   let minZ = Infinity, maxZ = -Infinity;
 
-  // Regex for å finne tall. Dette er ofte raskere enn manuell parsing i JS for store strenger
-  // fordi V8 sin regex-motor er skrevet i C++.
-  // Matcher: (tall) mellomrom (tall) mellomrom (tall)
-  const lineRegex = /([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/g;
+  // Regex som leser de tre FØRSTE tallene på hver linje (X Y Z).
+  // - Flagg 'm': ^ matcher starten av hver linje, så en match alltid starter på en ny linje.
+  // - Skilletegn er [ \t]+ (ikke \s+), så en match aldri går over et linjeskift.
+  // Ekstra kolonner (intensitet, RGB, ...) ignoreres dermed, og linjer som ikke
+  // starter med tre tall (headere, kommentarer, PCD/PLY-header) hoppes over.
+  // V8 sin regex-motor er skrevet i C++ og er raskere enn manuell parsing for store strenger.
+  // Matcher: start av linje, (tall) mellomrom (tall) mellomrom (tall)
+  const lineRegex = /^[ \t]*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)[ \t]+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)[ \t]+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/gm;
 
   let match;
 

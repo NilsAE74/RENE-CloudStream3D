@@ -56,7 +56,8 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 - Eksport av valgte punkter skrives med 3 desimaler (mm).
 
 ### Filformater
-- Akseptert: `.xyz`, `.txt`, `.pcd`, `.ply`. Merk: parseren er reelt bare en ASCII XYZ-parser (regex som finner tre tall etter hverandre). ASCII PCD/PLY fungerer delvis; binære PCD/PLY støttes **ikke**. Ekstra kolonner (intensitet, RGB) ignoreres; farge beregnes fra Z (HSL blå→rød).
+- Akseptert: `.xyz`, `.txt`, `.pcd`, `.ply`. Parseren er en ASCII-parser som leser de **tre første tallene på hver linje** (regex med `^` og flagg `m`, skilletegn mellomrom/tab, aldri over linjeskift). Ekstra kolonner (intensitet, RGB) ignoreres; linjer som ikke starter med tre tall (headere, kommentarer, PCD/PLY-header) hoppes over. Farge beregnes fra Z (HSL blå→rød).
+- Støttes **ikke**: binære PCD/PLY, komma-/semikolonseparerte filer, og PLY-filer med flater (face-linjer som `3 0 1 2` blir lest som punkter).
 
 ### Default-sky
 - Ved oppstart lastes syntetisk terreng + logo-punktsky. `viewer.setIsDefaultCloud(true, velocities)` gjør at første opplastede fil trigger en eksplosjonsanimasjon før ny sky lastes.
