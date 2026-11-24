@@ -10,16 +10,17 @@ import * as THREE from 'three';
  * Absolutt koordinat = positions[i] + origin. Bounds er i absolutte koordinater.
  */
 export function parseXYZFile(content) {
-  const len = content.length;
 
-  // 1. Estimer antall punkter for å pre-allokere minne.
-  // En typisk XYZ-linje er kanskje 25-50 bytes. Vi gjetter konservativt for å unngå resizing.
-  // Det er raskere å ha for mye minne og slice det etterpå, enn å growe arrayet.
-  const estimatedPoints = Math.ceil(len / 20);
+  // 1. Tell linjer for å pre-allokere riktig størrelse (ett punkt per linje).
+  // indexOf er rask, og dette unngår både overallokering og resizing.
+  let lineCount = 1;
+  for (let idx = content.indexOf('\n'); idx !== -1; idx = content.indexOf('\n', idx + 1)) {
+    lineCount++;
+  }
 
-  // Alloker TypedArrays (mye raskere enn vanlige arrays)
-  let positions = new Float32Array(estimatedPoints * 3);
-  let colors = new Float32Array(estimatedPoints * 3);
+  // Alloker TypedArray (mye raskere enn vanlige arrays).
+  // Farger allokeres først etter parsing, når antall punkter er kjent.
+  let positions = new Float32Array(lineCount * 3);
 
   let pIndex = 0; // Peker til hvor vi er i positions-arrayet
   let minX = Infinity, maxX = -Infinity;
@@ -51,15 +52,11 @@ export function parseXYZFile(content) {
       hasOrigin = true;
     }
 
-    // Utvid arrays hvis estimatet var for lavt
-    if (pIndex + 3 >= positions.length) {
-      const newPos = new Float32Array(positions.length * 2);
+    // Utvid array hvis estimatet var for lavt
+    if (pIndex + 3 > positions.length) {
+      const newPos = new Float32Array(Math.max(positions.length * 2, 3));
       newPos.set(positions);
       positions = newPos;
-
-      const newCol = new Float32Array(colors.length * 2);
-      newCol.set(colors);
-      colors = newCol;
     }
 
     // Lagre relativt til origo (differansen regnes i double før lagring i Float32)
@@ -80,9 +77,14 @@ export function parseXYZFile(content) {
 
   const count = pIndex / 3;
 
-  // Trim arrays ned til faktisk størrelse
-  positions = positions.slice(0, pIndex);
-  colors = colors.slice(0, pIndex);
+  // Trim ned til faktisk størrelse (kopier bare hvis mye plass er ubrukt,
+  // ellers holder det med et view; arrayet kopieres uansett til GPU-bufferet)
+  if (pIndex < positions.length) {
+    positions = (positions.length - pIndex > positions.length * 0.01)
+      ? positions.slice(0, pIndex)
+      : positions.subarray(0, pIndex);
+  }
+  const colors = new Float32Array(pIndex);
 
   console.log(`Parsed ${count} points. Z-Range: ${minZ} to ${maxZ}`);
 
