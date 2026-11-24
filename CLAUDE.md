@@ -16,15 +16,41 @@ npm run preview    # forhåndsvis dist/
 npm test           # parser-tester (node --test)
 ```
 
-`npm test` kjører parser-testene i `test/` (inkl. PLY/PCD/LAS, med binære testdata bygget med `DataView`; LAS/LAZ-filer laget med laspy + lazrs ligger i `test/data/`, lages på nytt med `test/data/make_las_fixtures.py`, og lesing i biter: alle delingsposisjoner må gi identisk resultat) (Node sin innebygde `node:test`, ingen avhengigheter; kjøres ikke i CI). Det finnes ingen linter eller formatter. Verifiser endringer med `npm test`, `npm run build` og manuell test i nettleser (`npm run dev`). Nye parser-regler skal ha testtilfeller. Chunk-size-advarselen (~1 MB bundle) ved build er kjent og ufarlig.
+`npm test` kjører parser-testene i `test/` (inkl. PLY/PCD/LAS, med binære testdata bygget med `DataView`; LAS/LAZ-filer laget med laspy + lazrs ligger i `test/data/`, lages på nytt med `test/data/make_las_fixtures.py`, og lesing i biter: alle delingsposisjoner må gi identisk resultat) (Node sin innebygde `node:test`; LAZ-testene bruker `laz-perf` fra `dependencies`; kjøres i deploy-workflowen før build). Det finnes ingen linter eller formatter. Verifiser endringer med `npm test`, `npm run build` og manuell test i nettleser (`npm run dev`). Nye parser-regler skal ha testtilfeller. Chunk-size-advarselen (~1 MB bundle) ved build er kjent og ufarlig.
 
 ## Deploy
 
-- `.github/workflows/deploy.yml`: push til `main` → `npm ci` + `npm run build` → GitHub Pages (Node 22; Vite 7 krever Node 20.19 eller nyere).
+- `.github/workflows/deploy.yml`: push til `main` → `npm ci` + `npm test` + `npm run build` → GitHub Pages (Node 22; Vite 7 krever Node 20.19 eller nyere). En feilende test stopper deploy. Workflowen reagerer ikke på tags; en release deployes av push til `main`.
 - `vite.config.js` har `base: '/RENE-CloudStream3D/'`. Må matche repo-navnet, ellers svart skjerm/404 på assets i produksjon.
-- Versjon: `vite.config.js` setter `__APP_COMMIT__` (fra `GITHUB_SHA` i Actions, ellers `git rev-parse`; `-dirty` ved lokale endringer) og `__APP_BUILD_TIME__` via `define`. `package.json`-versjonen (`0.0.0`) brukes ikke. Vises i appen og i PDF-rapporten, så man kan se hvilken commit som kjører.
+- Versjon: `vite.config.js` leser `version` fra `package.json` (`__APP_VERSION__`) og setter `__APP_COMMIT__` (fra `GITHUB_SHA` i Actions, ellers `git rev-parse`; `-dirty` ved lokale endringer) og `__APP_BUILD_TIME__` via `define`. `src/version.js` lager `CloudStream3D v1.0.0-rc.1 (161da9e)` (+ ` · dev` under `npm run dev`), som vises i appen, i konsollen og i PDF-bunnteksten. Byggetidspunktet står i tooltip. Ikke importer `package.json` i klientkoden.
 - Statiske filer (logoer) ligger i `public/` og refereres med absolutt sti (`/RENElogo.png` o.l.).
 - Lisens (#9): proprietær, Reinertsen New Energy AS (`LICENSE`, `"license": "UNLICENSED"` i `package.json`). `public/THIRD_PARTY_LICENSES.txt` lages av `scripts/third-party-licenses.mjs` fra `package-lock.json` (prebuild, eller `npm run licenses`) og publiseres med siden. Ved nye/endrede avhengigheter: kjør `npm run licenses` og commit filen. Pakker uten lisensfil i npm-pakken trenger teksten i `scripts/licenses/<pakkenavn>.txt` (som laz-perf), ellers feiler bygget.
+
+## Versjoner og release
+
+Semantisk versjonering, tilpasset en app uten API. Endringene står i `CHANGELOG.md` (Keep a Changelog, norsk, skrevet for brukere). Ikke lag tags eller GitHub Releases uten at brukeren ber om det.
+
+**Velg type** (høyeste som passer):
+- **major**: samme fil kan gi andre tall (koordinater, statistikkmetode, oppløsningsberegning), eller støtte for et filformat fjernes.
+- **minor**: ny funksjon eller nytt filformat; gamle filer gir samme resultat.
+- **patch**: feilretting som ikke endrer resultater.
+
+Feilrettinger som *endrer* tall (som presisjonsrettingen i 1.0.0-rc.1) er major, selv om de er rettinger. Under utvikling: legg endringer under `## [Unreleased]` i `CHANGELOG.md` i samme PR.
+
+**Rutine** (på `main`, lokalt):
+1. `git checkout main && git pull`
+2. I `CHANGELOG.md`: gi `[Unreleased]` nytt navn til `[x.y.z] - ÅÅÅÅ-MM-DD` og lag en ny, tom `[Unreleased]` over. Commit: `git commit -am "CHANGELOG for x.y.z"`.
+3. `npm test && npm run build` (før taggen lages).
+4. `npm version <major|minor|patch> -m "Release v%s"`. Oppdaterer `package.json` og `package-lock.json`, lager commit og tag `vx.y.z`. Krever at sporede filer ikke har ukommiterte endringer (nye, usporede filer stopper den ikke), derfor commit i steg 2.
+5. `git push --follow-tags` (pusher commit og tag; push til `main` deployer).
+6. GitHub Release: **Releases → Draft a new release** → velg taggen → lim inn seksjonen fra `CHANGELOG.md`. Kryss av «Set as a pre-release» for `-rc`-versjoner.
+
+**Fra `1.0.0-rc.1` til `1.0.0`** (etter test med ekte skannerdata):
+- Steg 2: legg innholdet fra `[Unreleased]` (feil funnet under testing) i en ny seksjon `[1.0.0]`. La `[1.0.0-rc.1]`-seksjonen stå, siden rapporter kan ha `v1.0.0-rc.1` i bunnteksten.
+- Steg 4: `npm version 1.0.0 -m "Release v%s"` (eksplisitt versjon er tydeligst; `npm version major` gir også `1.0.0` fra `1.0.0-rc.1`).
+- Ny kandidat i stedet: `npm version prerelease --preid rc` → `1.0.0-rc.2`.
+
+`1.0.0-rc.1` har ingen tag. Versjonen i `package.json` endres bare ved release, så commits etter en release viser samme versjon; hashen skiller dem.
 
 ## Arkitektur
 
@@ -43,7 +69,7 @@ npm test           # parser-tester (node --test)
 | `src/report.js` | PDF-rapport med jsPDF (kartbilde, statistikk, histogram, ev. profil). |
 | `src/pointFormats.js` | PLY/PCD/LAS/LAZ: `parseHeader` (header → beskrivelse av dataene), `AsciiBodyParser` / `parseAsciiBody` (ASCII i biter / hel streng), `parseBinaryFile` / `parseBinaryBody` (egen `DataView`-leser, vinduer / hel buffer), `parseLazFile` (LAZ via laz-perf), `readPointFile` / `parsePointFile` (innlesing i nettleser, strømming). |
 | `src/lazPerfLoader.js` | Laster laz-perf (WASM) i nettleseren. Importeres bare dynamisk fra `parseLazFile`, så laz-perf er en egen chunk som ikke lastes ved oppstart. |
-| `src/version.js` | Versjonsinfo: commit-hash og byggedato (`VERSION_TEXT`), etikett nederst på midten (`showVersionLabel`, skjult under 900 px) og bunntekst i PDF-rapporten. |
+| `src/version.js` | Versjonsinfo: versjon fra `package.json`, commit-hash og byggetidspunkt (`VERSION_TEXT`, `BUILD_TIME_TEXT`), etikett nederst på midten med byggetid i tooltip (`showVersionLabel`, skjult under 900 px) og bunntekst i PDF-rapporten. |
 | `src/colorScale.js` | Felles fargeskala for høydefarger (auto/manuell min–maks, `heightToColor`) og desimalregler for Z (`zDecimals`, `labelDecimals`). |
 
 Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare settings-objekter eksportert fra `ui.js`. Verktøy-instanser (measurement, profile) injiseres med `setMeasurementTool` / `setProfileTool`.
