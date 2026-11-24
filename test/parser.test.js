@@ -625,8 +625,8 @@ test('LAS: ikke-støttede og ugyldige filer gir tydelig feilmelding', async () =
   assert.throws(() => parseBinaryBody(trunc.buffer, parseHeader(bytesToString(trunc))), /truncated/);
   // Avkortet header
   assert.throws(() => parseHeader(bytesToString(bytes.slice(0, 200))), /LAS header is truncated/);
-  // LAZ (bit 7 i punktformatet)
-  await assert.rejects(parseBytes(lasFile(LAS_POINTS, { formatByte: 0x80 | 3, pointFormat: 3 })), /LAZ\) is not supported/);
+  // LAZ med waveform-punktformat (bit 7 = komprimert) støttes ikke av laz-perf
+  assert.throws(() => parseHeader(bytesToString(lasFile(LAS_POINTS, { formatByte: 0x80 | 4, pointFormat: 4 }))), /LAZ with point format 4/);
   // Ukjent punktformat, for kort post, ukjent versjon
   await assert.rejects(parseBytes(lasFile(LAS_POINTS, { formatByte: 11, recordLength: 70 })), /point data format: 11/);
   await assert.rejects(parseBytes(lasFile(LAS_POINTS, { pointFormat: 6, recordLength: 28 })), /too short/);
@@ -636,3 +636,72 @@ test('LAS: ikke-støttede og ugyldige filer gir tydelig feilmelding', async () =
   // Skala 0
   await assert.rejects(parseBytes(lasFile([], { scale: [0, 0.001, 0.001] })), /scale factors/);
 });
+
+// --- LAZ (issue #15, del 2) ---
+// Testfilene i test/data er laget med laspy + lazrs (uavhengig LAZ-koder), se
+// test/data/make_las_fixtures.py. Samme punkter finnes som LAS og LAZ.
+import { readFileSync } from 'node:fs';
+import { createLazPerf } from 'laz-perf';
+import { parseLazFile } from '../src/pointFormats.js';
+
+const fixture = (name) => new Uint8Array(readFileSync(new URL(`./data/${name}`, import.meta.url)));
+const LAZ_OPTIONS = { createLazPerf: () => createLazPerf() };
+
+async function parseFixture(name, options = LAZ_OPTIONS) {
+  return parsePointFile(await readPointFile(new Blob([fixture(name)])), options);
+}
+
+/** Punktene i testfilene: samme formel som make_las_fixtures.py (lagret med 1 mm skala). */
+function gridPoints(n, step = 0.5, cols = 100) {
+  return Array.from({ length: n }, (_, i) => {
+    const x = 500000 + (i % cols) * step + 0.123;
+    const y = 6650000 + Math.floor(i / cols) * step + 0.456;
+    return [x, y, 50 + 10 * Math.sin(x / 7) * Math.cos(y / 11)];
+  });
+}
+
+test('LAS fra laspy: punktformat 1 (1.2) og 7 med ekstra bytes (1.4)', async () => {
+  for (const [name, fmt, version] of [['pf1_v12.las', 1, '1.2'], ['pf7_v14_extra.las', 7, '1.4']]) {
+    const h = parseHeader(bytesToString(fixture(name)));
+    assert.equal(h.type, 'las');
+    assert.equal(h.pointFormat, fmt);
+    assert.equal(h.version, version);
+    const r = await parseFixture(name);
+    assert.deepEqual(r.format, { type: 'las', encoding: 'binary' });
+    assertClose(absPoints(r), gridPoints(1000), 0.0005 + 1e-6); // Z avrundet til 1 mm
+  }
+});
+
+test('LAZ: identisk resultat som samme fil som LAS', async () => {
+  for (const base of ['pf1_v12', 'pf7_v14_extra']) {
+    const h = parseHeader(bytesToString(fixture(`${base}.laz`)));
+    assert.equal(h.type, 'laz');
+    const las = await parseFixture(`${base}.las`);
+    const laz = await parseFixture(`${base}.laz`);
+    assert.deepEqual(laz.format, { type: 'laz', encoding: 'binary' });
+    assert.deepEqual({ ...snapshot(laz), format: null }, { ...snapshot(las), format: null }, base);
+  }
+});
+
+test('LAZ med flere chunks, i små vinduer, med fremdrift', async () => {
+  const bytes = fixture('pf0_v12_chunks.laz');
+  const header = parseHeader(bytesToString(bytes));
+  const fractions = [];
+  const whole = await parseLazFile(new Blob([bytes]), header, LAZ_OPTIONS);
+  assert.equal(whole.count, 60000);
+  assertClose(absPoints(whole), gridPoints(60000), 0.0005 + 1e-6);
+  const r = await parseLazFile(new Blob([bytes]), header, { ...LAZ_OPTIONS, windowBytes: 4099, onProgress: (f) => fractions.push(f) });
+  assert.deepEqual(snapshot(r), snapshot(whole));
+  assert.ok(fractions.every((f, i) => f >= 0 && f <= 1 && (i === 0 || f >= fractions[i - 1])), 'fremdrift 0–1, stigende');
+});
+
+test('LAZ: avkortet fil gir feilmelding', async () => {
+  const bytes = fixture('pf0_v12_chunks.laz');
+  for (const cut of [bytes.length - 1, Math.floor(bytes.length / 2)]) {
+    await assert.rejects(parseBytesWith(bytes.slice(0, cut), LAZ_OPTIONS), /Could not open the LAZ file|LAZ decompression failed/, `kuttet ved ${cut}`);
+  }
+});
+
+async function parseBytesWith(bytes, options) {
+  return parsePointFile(await readPointFile(new Blob([bytes])), options);
+}

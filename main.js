@@ -527,17 +527,14 @@ body.addEventListener('drop', (e) => {
     const file = files[0];
 
     // Check file type
-    const validExtensions = ['.txt', '.xyz', '.csv', '.pcd', '.ply', '.las'];
+    const validExtensions = ['.txt', '.xyz', '.csv', '.pcd', '.ply', '.las', '.laz'];
     const fileName = file.name.toLowerCase();
     const isValid = validExtensions.some(ext => fileName.endsWith(ext));
 
     if (isValid) {
       loadFile(file);
-    } else if (fileName.endsWith('.laz')) {
-      // LAZ (komprimert LAS) er ikke støttet ennå (issue #15, del 2)
-      stats.showDashboardMessage('Compressed LAS (LAZ) is not supported yet. Decompress the file to LAS first (e.g. with LAStools or CloudCompare).', 'error');
     } else {
-      stats.showDashboardMessage('Invalid file type. Supported formats: .txt, .xyz, .csv, .pcd, .ply, .las', 'error');
+      stats.showDashboardMessage('Invalid file type. Supported formats: .txt, .xyz, .csv, .pcd, .ply, .las, .laz', 'error');
     }
   }
 });

@@ -11,11 +11,12 @@ Applikasjonen er deployet og tilgjengelig på:
 
 ## 📋 Funksjoner
 
-- 📂 Last opp og visualiser punktsky-filer (.xyz, .txt, .csv, .pcd, .ply, .las). Skilletegn: mellomrom, tab, komma eller semikolon; desimalpunktum eller desimalkomma
+- 📂 Last opp og visualiser punktsky-filer (.xyz, .txt, .csv, .pcd, .ply, .las, .laz). Skilletegn: mellomrom, tab, komma eller semikolon; desimalpunktum eller desimalkomma
   - PLY: ASCII og binær little endian. Bare vertex-data leses (flater/faces ignoreres), x/y/z kan stå i vilkårlig rekkefølge, float eller double
   - PCD: `DATA ascii` og `DATA binary`. NaN-punkter hoppes over
   - LAS: versjon 1.0–1.4, punktformat 0–10. Koordinatene regnes som heltall × skala + offset i double. Poster med ekstra bytes støttes
-  - Ikke støttet: binær big endian PLY, komprimert PCD (`binary_compressed`) og komprimert LAS (LAZ). Disse gir en feilmelding
+  - LAZ (komprimert LAS): punktformat 0–3 og 6–8, dekomprimert med [laz-perf](https://github.com/hobuinc/laz-perf) (WebAssembly). laz-perf lastes først når en LAZ-fil åpnes. Den komprimerte filen må ligge i minnet under dekomprimering (maks ca. 1,8 GB LAZ-fil)
+  - Ikke støttet: binær big endian PLY, komprimert PCD (`binary_compressed`) og LAZ med waveform-punktformat (4, 5, 9, 10). Disse gir en feilmelding
   - UTM-koordinater beholder full presisjon (double) også for binære filer
   - Store filer leses i biter, så filer over 512 MB (nettleserens grense for én tekststreng) kan lastes. Fremdrift vises i prosent. Testet med 20 mill. punkter (600 MB): ca. 8 s innlesing i Chromium
 - 🎨 Interaktivt 3D-grensesnitt med orbit-kontroller
@@ -32,6 +33,7 @@ Applikasjonen er deployet og tilgjengelig på:
 - [lil-gui](https://lil-gui.georgealways.com/) - GUI-kontroller
 - [jsPDF](https://github.com/parallax/jsPDF) - PDF-generering
 - [html2canvas](https://html2canvas.hertzen.com/) - Screenshot-funksjonalitet
+- [laz-perf](https://github.com/hobuinc/laz-perf) - LAZ-dekomprimering (WebAssembly, Apache-2.0)
 
 ## 🏗️ Installasjon og Lokal Utvikling
 

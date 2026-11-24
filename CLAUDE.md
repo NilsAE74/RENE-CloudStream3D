@@ -16,7 +16,7 @@ npm run preview    # forhåndsvis dist/
 npm test           # parser-tester (node --test)
 ```
 
-`npm test` kjører parser-testene i `test/` (inkl. PLY/PCD, med binære testdata bygget med `DataView`, og lesing i biter: alle delingsposisjoner må gi identisk resultat) (Node sin innebygde `node:test`, ingen avhengigheter; kjøres ikke i CI). Det finnes ingen linter eller formatter. Verifiser endringer med `npm test`, `npm run build` og manuell test i nettleser (`npm run dev`). Nye parser-regler skal ha testtilfeller. Chunk-size-advarselen (~1 MB bundle) ved build er kjent og ufarlig.
+`npm test` kjører parser-testene i `test/` (inkl. PLY/PCD/LAS, med binære testdata bygget med `DataView`; LAS/LAZ-filer laget med laspy + lazrs ligger i `test/data/`, lages på nytt med `test/data/make_las_fixtures.py`, og lesing i biter: alle delingsposisjoner må gi identisk resultat) (Node sin innebygde `node:test`, ingen avhengigheter; kjøres ikke i CI). Det finnes ingen linter eller formatter. Verifiser endringer med `npm test`, `npm run build` og manuell test i nettleser (`npm run dev`). Nye parser-regler skal ha testtilfeller. Chunk-size-advarselen (~1 MB bundle) ved build er kjent og ufarlig.
 
 ## Deploy
 
@@ -40,7 +40,8 @@ npm test           # parser-tester (node --test)
 | `src/profile.js` | Tverrsnitt/profil langs en linje med tykkelse. Har både løse modulfunksjoner og `ProfileTool`-klasse. |
 | `src/grid.js` | Survey-grid med originale koordinater. |
 | `src/report.js` | PDF-rapport med jsPDF (kartbilde, statistikk, histogram, ev. profil). |
-| `src/pointFormats.js` | PLY/PCD/LAS: `parseHeader` (header → beskrivelse av dataene), `AsciiBodyParser` / `parseAsciiBody` (ASCII i biter / hel streng), `parseBinaryFile` / `parseBinaryBody` (egen `DataView`-leser, vinduer / hel buffer), `readPointFile` / `parsePointFile` (innlesing i nettleser, strømming). |
+| `src/pointFormats.js` | PLY/PCD/LAS/LAZ: `parseHeader` (header → beskrivelse av dataene), `AsciiBodyParser` / `parseAsciiBody` (ASCII i biter / hel streng), `parseBinaryFile` / `parseBinaryBody` (egen `DataView`-leser, vinduer / hel buffer), `parseLazFile` (LAZ via laz-perf), `readPointFile` / `parsePointFile` (innlesing i nettleser, strømming). |
+| `src/lazPerfLoader.js` | Laster laz-perf (WASM) i nettleseren. Importeres bare dynamisk fra `parseLazFile`, så laz-perf er en egen chunk som ikke lastes ved oppstart. |
 | `src/version.js` | Versjonsinfo: commit-hash og byggedato (`VERSION_TEXT`), etikett nederst på midten (`showVersionLabel`, skjult under 900 px) og bunntekst i PDF-rapporten. |
 | `src/colorScale.js` | Felles fargeskala for høydefarger (auto/manuell min–maks, `heightToColor`) og desimalregler for Z (`zDecimals`, `labelDecimals`). |
 
@@ -62,15 +63,16 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 - Eksport av valgte punkter skrives med 3 desimaler (mm).
 
 ### Filformater
-- Akseptert: `.xyz`, `.txt`, `.csv`, `.pcd`, `.ply`, `.las`. Typen avgjøres av **innholdet**, ikke filendelsen: `readPointFile` leser de første 64 KB (`file.slice`), og `parseHeader` ser etter LAS-signatur (`LASF`), PLY-header (første linje `ply`) eller PCD-header (første linje som ikke er kommentar er `VERSION`/`FIELDS`). Deretter leser `parsePointFile` dataene **i biter** (se «Lesing i biter» under).
+- Akseptert: `.xyz`, `.txt`, `.csv`, `.pcd`, `.ply`, `.las`, `.laz`. Typen avgjøres av **innholdet**, ikke filendelsen: `readPointFile` leser de første 64 KB (`file.slice`), og `parseHeader` ser etter LAS-signatur (`LASF`), PLY-header (første linje `ply`) eller PCD-header (første linje som ikke er kommentar er `VERSION`/`FIELDS`). Deretter leser `parsePointFile` dataene **i biter** (se «Lesing i biter» under).
 - **Uten header** (`.xyz`/`.txt`/`.csv`): `XYZChunkParser` (og `parseXYZFile` for hel streng), en ASCII-parser som leser de **tre første tallene på hver linje** (regex med `^` og flagg `m`, aldri over linjeskift). Ekstra kolonner (intensitet, RGB) ignoreres; linjer som ikke starter med tre tall (headere, kommentarer) hoppes over.
 - Skilletegn og desimaltegn finnes av `detectFormat` ut fra de første 50 datalinjene, og `buildLineRegex` lager regex for formatet: mellomrom/tab, `,` eller `;` som skilletegn. `;` → desimalkomma hvis det finnes komma. Komma der de tre første mellomrom-separerte feltene er tall med desimalkomma (`1,5 2,5 3,5`) → desimalkomma; ellers er komma skilletegn (`1.5,2.5,3.5`, `1.5, 2.5, 3.5`). Skilletegn velges ved flertall; desimalkomma hvis minst én linje har det.
 - **PLY** (`ascii`, `binary_little_endian`): bare de N radene i `element vertex N` leses; andre elementer (faces o.l.) hoppes over, også når de står før vertex (binær: list-properties gås gjennom). x/y/z finnes fra rekkefølgen på `property`-linjene (trenger ikke stå først). Alle skalartyper (char…double) støttes; vertex med list-property støttes ikke.
 - **PCD** (`DATA ascii`, `DATA binary`): x/y/z-kolonner/offsets fra `FIELDS`, `SIZE`, `TYPE`, `COUNT` (COUNT > 1 gir flere kolonner). Antall fra `POINTS` (ev. `WIDTH × HEIGHT`). Binær PCD antas little endian.
-- **LAS** (#15, versjon 1.0–1.4, punktformat 0–10): `parseLasHeader` leser public header block med `DataView` (bytene fra `bytesToString`). X/Y/Z er `int32` først i hver post; absolutt koordinat = heltall × skala + offset, regnet i double i `readBinaryRows` før `PointBuilder`. Stride = `point data record length` fra headeren (ekstra bytes). Antall: 64-bits feltet i LAS 1.4 hvis det er > 0, ellers legacy-feltet. Leses i vinduer som binær PLY/PCD. LAZ (bit 7/6 i punktformatet) gir feilmelding; LAZ-støtte (del 2 av #15) er ikke laget ennå.
+- **LAS** (#15, versjon 1.0–1.4, punktformat 0–10): `parseLasHeader` leser public header block med `DataView` (bytene fra `bytesToString`). X/Y/Z er `int32` først i hver post; absolutt koordinat = heltall × skala + offset, regnet i double i `readBinaryRows` før `PointBuilder`. Stride = `point data record length` fra headeren (ekstra bytes). Antall: 64-bits feltet i LAS 1.4 hvis det er > 0, ellers legacy-feltet. Leses i vinduer som binær PLY/PCD.
+- **LAZ** (#15 del 2): samme header som LAS, men bit 7/6 i punktformatet er satt → `type: 'laz'`. `parseLazFile` bruker `laz-perf` (`LASZip`): den **komprimerte** filen kopieres i vinduer (`file.slice`) inn i WASM-minnet med `_malloc`/`HEAPU8.set` (aldri hele filen i én JS-`ArrayBuffer`), deretter `getPoint` per punkt og `int32 × skala + offset` i double, som LAS. Hele den komprimerte filen må ligge i WASM-minnet fordi chunk-tabellen er aritmetisk kodet (maks `LAZ_MAX_FILE_BYTES` = 1,8 GB, WASM-bygget har 2 GB). Ny laz-perf-instans per fil, så minnet frigjøres. laz-perf er bygget uten C++-unntak: feil gir et tall/rå melding, som logges med `console.warn` og erstattes med en lesbar melding. Bare punktformat 0–3 og 6–8 (ikke waveform). I Node (tester) gis laz-perf inn med `options.createLazPerf`, siden `lazPerfLoader.js` bruker Vite sin `?url`-import.
 - Punkter med NaN/Inf (vanlig i organiserte PCD-skyer) hoppes over av `PointBuilder`.
 - Binær lesing bruker egen `DataView`-leser. **Ikke bruk `PLYLoader`/`PCDLoader` fra three**: de lagrer absolutte koordinater i `Float32Array` og mister UTM-presisjon. Origo trekkes fra i double før lagring, som i `parseXYZFile`.
-- Ikke støttet, gir tydelig feilmelding i dashboardet før eksplosjonen/innlasting: PLY `binary_big_endian`, PCD `DATA binary_compressed`, LAZ, LAS-versjon utenfor 1.0–1.4, punktformat over 10, header uten `end_header`/`DATA` innen 64 KB, manglende x/y/z, avkortet binærfil.
+- Ikke støttet, gir tydelig feilmelding i dashboardet før eksplosjonen/innlasting: PLY `binary_big_endian`, PCD `DATA binary_compressed`, LAZ med waveform-punktformat (4, 5, 9, 10), LAZ over 1,8 GB, LAS-versjon utenfor 1.0–1.4, punktformat over 10, header uten `end_header`/`DATA` innen 64 KB, manglende x/y/z, avkortet binærfil.
 - Header og data er adskilt (`parseHeader` → `dataStart`, deretter body-parser + `PointBuilder`). ASCII-stien tolker headeren på nytt i den dekodede teksten når den er komplett, siden `dataStart` fra 64 KB-proben er en byte-offset.
 
 ### Lesing i biter (#5)
@@ -82,7 +84,7 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 - Minne for filer uten header: antall punkter er ukjent, så `XYZChunkParser` estimerer fra linjetettheten så langt × filstørrelse, +3 %, og reserverer før hver bit (aldri dobling i løkken). Bommer estimatet, reserveres et nytt (kort topp: gammel + ny array). `finishPoints` kopierer bare hvis > 5 % er ubrukt, så marginen ikke gir en ekstra kopi. Topp ved innlesing ≈ posisjoner (+3 %) + farger + én tekstbit; målt i Node for 20 mill. punkter / 600 MB: +530 MB RSS.
 - Fremdrift: `onProgress(andel)` og `setTimeout(0)`-pause maks hvert 100 ms (`YIELD_INTERVAL_MS`). Hyppigere pauser gjør lesingen tregere, særlig når nettleseren må tegne en stor sky mellom bitene.
 - `parsePointFile` er `async`. `{ header, text }` og `{ header, buffer }` støttes fortsatt (tester, små filer) og går gjennom samme parsere.
-- Alle parsere returnerer samme struktur: `{ positions, colors, count, bounds, origin, format }`. `format` er `{ delimiter, decimalComma }` for filer uten header, ellers `{ type: 'ply'|'pcd'|'las', encoding: 'ascii'|'binary' }`.
+- Alle parsere returnerer samme struktur: `{ positions, colors, count, bounds, origin, format }`. `format` er `{ delimiter, decimalComma }` for filer uten header, ellers `{ type: 'ply'|'pcd'|'las'|'laz', encoding: 'ascii'|'binary' }`.
 
 ### Høydefarger og Z-visning
 - All høydefarging går via `src/colorScale.js` (blå ved min → rød ved maks, klippet utenfor). Ikke lag egne HSL-beregninger; bruk `heightToColor` / `heightToHue`.
@@ -99,7 +101,7 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 - Tallformat i UI: `toLocaleString('nb-NO')`. Enheter i meter.
 - Ytelse: bruk `Float32Array` for posisjoner/farger og unngå `split()`/vanlige arrays på store datasett (filer kan ha millioner av punkter).
 - Renderer har `preserveDrawingBuffer: true` – nødvendig for screenshots til PDF. Ikke fjern.
-- Avhengigheter: `three@^0.160` (addons importeres fra `three/examples/jsm/...`), `lil-gui`, `jspdf`, `html2canvas`.
+- Avhengigheter: `three@^0.160` (addons importeres fra `three/examples/jsm/...`), `lil-gui`, `jspdf`, `html2canvas`, `laz-perf` (låst til 0.0.7, Apache-2.0; bare LAZ, lastes dynamisk).
 
 ## Kjente forhold å være obs på
 
