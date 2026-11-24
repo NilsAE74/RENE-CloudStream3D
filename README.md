@@ -166,18 +166,16 @@ Hvis 3D-visningen er svart etter deployment:
 
 ## 📝 Lisens
 
-Dette prosjektet er laget som en tutorial og er fritt tilgjengelig for bruk.
+Copyright © 2026 Reinertsen New Energy AS. Alle rettigheter forbeholdt.
 
-## 👤 Forfatter
+RENE CloudStream3D er proprietær programvare. Koden kan ikke brukes, kopieres, endres eller distribueres uten skriftlig tillatelse fra Reinertsen New Energy AS, selv om repoet er offentlig. Se [`LICENSE`](LICENSE).
 
-**NilsAE74**
+### Tredjepartskomponenter
 
-- GitHub: [@NilsAE74](https://github.com/NilsAE74)
+Appen bruker åpen kildekode med egne lisenser (MIT, Apache-2.0 o.l., bl.a. Three.js, jsPDF, html2canvas, lil-gui og laz-perf). Lisenstekstene ligger i [`public/THIRD_PARTY_LICENSES.txt`](public/THIRD_PARTY_LICENSES.txt) og publiseres med siden (`/RENE-CloudStream3D/THIRD_PARTY_LICENSES.txt`).
 
-## 🤝 Bidrag
+Filen lages av `scripts/third-party-licenses.mjs` fra `package-lock.json` og oppdateres automatisk ved `npm run build` (eller manuelt med `npm run licenses`). Pakker uten lisensfil i npm-pakken (f.eks. laz-perf) må ha teksten i `scripts/licenses/<pakkenavn>.txt`, ellers stopper bygget. Commit den oppdaterte filen når avhengighetene endres.
 
-Bidrag, issues og feature requests er velkomne!
+## 👤 Utvikling
 
-## ⭐ Støtt Prosjektet
-
-Hvis du synes dette prosjektet er nyttig, gi det gjerne en ⭐ på GitHub!
+Utviklet for Reinertsen New Energy av [@NilsAE74](https://github.com/NilsAE74).

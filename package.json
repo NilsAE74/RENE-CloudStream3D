@@ -2,10 +2,13 @@
   "name": "rene-cloudstream3d",
   "private": true,
   "version": "0.0.0",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/third-party-licenses.mjs",
     "build": "vite build",
+    "licenses": "node scripts/third-party-licenses.mjs",
     "preview": "vite preview",
     "test": "node --test"
   },

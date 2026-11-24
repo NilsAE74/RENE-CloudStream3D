@@ -24,6 +24,7 @@ npm test           # parser-tester (node --test)
 - `vite.config.js` har `base: '/RENE-CloudStream3D/'`. Må matche repo-navnet, ellers svart skjerm/404 på assets i produksjon.
 - Versjon: `vite.config.js` setter `__APP_COMMIT__` (fra `GITHUB_SHA` i Actions, ellers `git rev-parse`; `-dirty` ved lokale endringer) og `__APP_BUILD_TIME__` via `define`. `package.json`-versjonen (`0.0.0`) brukes ikke. Vises i appen og i PDF-rapporten, så man kan se hvilken commit som kjører.
 - Statiske filer (logoer) ligger i `public/` og refereres med absolutt sti (`/RENElogo.png` o.l.).
+- Lisens (#9): proprietær, Reinertsen New Energy AS (`LICENSE`, `"license": "UNLICENSED"` i `package.json`). `public/THIRD_PARTY_LICENSES.txt` lages av `scripts/third-party-licenses.mjs` fra `package-lock.json` (prebuild, eller `npm run licenses`) og publiseres med siden. Ved nye/endrede avhengigheter: kjør `npm run licenses` og commit filen. Pakker uten lisensfil i npm-pakken trenger teksten i `scripts/licenses/<pakkenavn>.txt` (som laz-perf), ellers feiler bygget.
 
 ## Arkitektur
 
@@ -111,4 +112,4 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 
 ## Åpne punkter (GitHub-issues)
 
-- #9 Lisenstekst i README
+- #15 LAS/LAZ: valgfrie deler gjenstår (bare bakkepunkter, CRS fra headeren, RGB-farger)
