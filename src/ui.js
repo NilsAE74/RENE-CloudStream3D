@@ -487,15 +487,8 @@ function handleInvertZ() {
   // Get coordinate offset to calculate original X/Y bounds
   const offset = viewer.getCoordinateOffset();
   
-  // Convert centered positions back to original for histogram
-  const originalPositions = new Float32Array(positions.length);
-  for (let i = 0; i < positions.length; i += 3) {
-    originalPositions[i] = positions[i] + offset.x;
-    originalPositions[i + 1] = positions[i + 1] + offset.y;
-    originalPositions[i + 2] = positions[i + 2] + offset.z;  // Using the inverted offset
-  }
-
-  // Update dashboard with ORIGINAL values
+  // Statistics use the centered positions directly (inverted in place by the viewer).
+  // offset.z is already inverted, so centered Z + offset.z gives the original Z.
   stats.updateDashboard(pointCount, {
     minX: boundingBox.min.x + offset.x,
     maxX: boundingBox.max.x + offset.x,
@@ -503,7 +496,7 @@ function handleInvertZ() {
     maxY: boundingBox.max.y + offset.y,
     minZ: originalMinZ,  // Already converted to original in viewer.js
     maxZ: originalMaxZ   // Already converted to original in viewer.js
-  }, originalPositions);
+  }, positions, '', offset.z);
 
   // Update legend with new Z-values
   updateLegend(originalMinZ, originalMaxZ);
@@ -512,7 +505,8 @@ function handleInvertZ() {
   if (currentStats) {
     currentStats.minZ = originalMinZ;
     currentStats.maxZ = originalMaxZ;
-    currentStats.positions = originalPositions;  // Update positions for histogram
+    currentStats.positions = positions;  // Centered positions for histogram
+    currentStats.zOffset = offset.z;
     console.log('Statistics updated for PDF export with inverted Z-values and positions');
   }
 
