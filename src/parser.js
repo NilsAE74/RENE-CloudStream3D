@@ -3,6 +3,11 @@ import * as THREE from 'three';
 /**
  * Optimalisert parser for XYZ-filer
  * Bruker TypedArrays og unngår String.split() for å spare minne.
+ *
+ * Presisjon: Float32 har bare ~7 gjeldende siffer, så UTM-verdier som
+ * Y ≈ 6.000.000 ville blitt avrundet til 0,5 m. Derfor lagres posisjonene
+ * RELATIVT til første punkt (origin), som holdes i full presisjon (double).
+ * Absolutt koordinat = positions[i] + origin. Bounds er i absolutte koordinater.
  */
 export function parseXYZFile(content) {
   const len = content.length;
@@ -28,12 +33,23 @@ export function parseXYZFile(content) {
 
   let match;
 
+  // Lokalt origo (første punkt), lagret i full presisjon
+  let originX = 0, originY = 0, originZ = 0;
+  let hasOrigin = false;
+
   // --- PASS 1: Parse tekst til tall ---
   // Vi kjører regex i en løkke. exec() returnerer neste match uten å lage en gigantisk array.
   while ((match = lineRegex.exec(content)) !== null) {
     const x = parseFloat(match[1]);
     const y = parseFloat(match[2]);
     const z = parseFloat(match[3]);
+
+    if (!hasOrigin) {
+      originX = x;
+      originY = y;
+      originZ = z;
+      hasOrigin = true;
+    }
 
     // Utvid arrays hvis estimatet var for lavt
     if (pIndex + 3 >= positions.length) {
@@ -46,9 +62,10 @@ export function parseXYZFile(content) {
       colors = newCol;
     }
 
-    positions[pIndex] = x;
-    positions[pIndex + 1] = y;
-    positions[pIndex + 2] = z;
+    // Lagre relativt til origo (differansen regnes i double før lagring i Float32)
+    positions[pIndex] = x - originX;
+    positions[pIndex + 1] = y - originY;
+    positions[pIndex + 2] = z - originZ;
 
     // Oppdater bounds "inline" for å unngå en ekstra loop
     if (x < minX) minX = x;
@@ -74,7 +91,7 @@ export function parseXYZFile(content) {
   const tempColor = new THREE.Color(); // Gjenbruk objektet for å spare GC
 
   for (let i = 0; i < pIndex; i += 3) {
-    const z = positions[i + 2];
+    const z = positions[i + 2] + originZ;
     const normalizedZ = (z - minZ) / zRange;
 
     // Blå (0.6) til Rød (0.0)
@@ -86,17 +103,30 @@ export function parseXYZFile(content) {
   }
 
   return {
-    positions, // Returnerer nå Float32Array direkte
-    colors,    // Returnerer Float32Array direkte
+    positions, // Float32Array, RELATIVT til origin
+    colors,    // Float32Array
     count,
-    bounds: { minX, maxX, minY, maxY, minZ, maxZ }
+    bounds: { minX, maxX, minY, maxY, minZ, maxZ }, // Absolutte koordinater
+    origin: { x: originX, y: originY, z: originZ }  // Full presisjon
   };
 }
 
-export function centerPositions(positions, bounds) {
+/**
+ * Sentrerer posisjoner rundt origo.
+ * @param {Float32Array|number[]} positions - Posisjoner relativt til `origin`
+ * @param {Object} bounds - Absolutte bounds
+ * @param {Object} origin - Origo som posisjonene er relative til (default 0,0,0 = absolutte posisjoner)
+ * @returns {{centeredPositions: Float32Array, offset: {x,y,z}}} offset er i absolutte koordinater
+ */
+export function centerPositions(positions, bounds, origin = { x: 0, y: 0, z: 0 }) {
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerY = (bounds.minY + bounds.maxY) / 2;
   const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+
+  // Forskyvning fra origin til senter (regnes i double)
+  const shiftX = centerX - origin.x;
+  const shiftY = centerY - origin.y;
+  const shiftZ = centerZ - origin.z;
 
   console.log(`Centering offset: ${centerX}, ${centerY}, ${centerZ}`);
 
@@ -108,9 +138,9 @@ export function centerPositions(positions, bounds) {
   const centeredPositions = new Float32Array(positions.length);
 
   for (let i = 0; i < positions.length; i += 3) {
-    centeredPositions[i] = positions[i] - centerX;
-    centeredPositions[i + 1] = positions[i + 1] - centerY;
-    centeredPositions[i + 2] = positions[i + 2] - centerZ;
+    centeredPositions[i] = positions[i] - shiftX;
+    centeredPositions[i + 1] = positions[i + 1] - shiftY;
+    centeredPositions[i + 2] = positions[i + 2] - shiftZ;
   }
 
   return {

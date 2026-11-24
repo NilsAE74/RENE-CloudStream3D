@@ -287,7 +287,7 @@ function loadFile(file) {
       // Parse XYZ file (use setTimeout to allow UI to update)
       setTimeout(() => {
       try {
-      const { positions, colors, count, bounds } = parser.parseXYZFile(content);
+      const { positions, colors, count, bounds, origin } = parser.parseXYZFile(content);
 
       if (count === 0) {
         stats.showDashboardMessage('No valid points found in file!', 'error');
@@ -299,7 +299,7 @@ function loadFile(file) {
       console.log(`Colors array length: ${colors.length}`);
 
       // Center positions around origin for better WebGL precision
-      const { centeredPositions, offset } = parser.centerPositions(positions, bounds);
+      const { centeredPositions, offset } = parser.centerPositions(positions, bounds, origin);
 
       // Save offset in selection module for correct export
       selection.setCoordinateOffset(offset.x, offset.y, offset.z);
