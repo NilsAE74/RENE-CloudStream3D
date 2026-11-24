@@ -1,5 +1,5 @@
 {
-  "name": "three-js-tutorial",
+  "name": "rene-cloudstream3d",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,7 +12,6 @@
     "vite": "^7.3.1"
   },
   "dependencies": {
-    "all": "^0.0.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
     "lil-gui": "^0.21.0",

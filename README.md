@@ -1,6 +1,6 @@
 # 3D Punktsky Visualisering
 
-[![Deploy to GitHub Pages](https://github.com/NilsAE74/Cursor-Tutorial/actions/workflows/deploy.yml/badge.svg)](https://github.com/NilsAE74/Cursor-Tutorial/actions/workflows/deploy.yml)
+[![Deploy to GitHub Pages](https://github.com/NilsAE74/RENE-CloudStream3D/actions/workflows/deploy.yml/badge.svg)](https://github.com/NilsAE74/RENE-CloudStream3D/actions/workflows/deploy.yml)
 
 En interaktiv 3D-visualiseringsapplikasjon for punktskyer bygget med Three.js og Vite.
 
@@ -9,7 +9,7 @@ En interaktiv 3D-visualiseringsapplikasjon for punktskyer bygget med Three.js og
 **⚠️ DEPLOYMENT FAILING? → See [QUICK_FIX.md](QUICK_FIX.md) for 2-minute setup guide!**
 
 Applikasjonen er deployet og tilgjengelig på:
-**https://nilsae74.github.io/Cursor-Tutorial/**
+**https://nilsae74.github.io/RENE-CloudStream3D/**
 
 ## 📋 Funksjoner
 
@@ -40,8 +40,8 @@ Applikasjonen er deployet og tilgjengelig på:
 
 1. **Klon repositoryet:**
    ```bash
-   git clone https://github.com/NilsAE74/Cursor-Tutorial.git
-   cd Cursor-Tutorial
+   git clone https://github.com/NilsAE74/RENE-CloudStream3D.git
+   cd RENE-CloudStream3D
    ```
 
 2. **Installer avhengigheter:**
@@ -79,7 +79,7 @@ Prosjektet er konfigurert for automatisk deployment til GitHub Pages.
 📖 **Se [SETUP_GITHUB_PAGES.md](SETUP_GITHUB_PAGES.md) for detaljerte instruksjoner.**
 
 Kort oppsummering:
-1. Gå til [Settings → Pages](https://github.com/NilsAE74/Cursor-Tutorial/settings/pages)
+1. Gå til [Settings → Pages](https://github.com/NilsAE74/RENE-CloudStream3D/settings/pages)
 2. Sett **Source** til `GitHub Actions`
 3. Sett **Workflow permissions** til "Read and write"
 4. Hvis repositoryet er privat, kreves GitHub Pro eller gjør det offentlig
@@ -100,7 +100,7 @@ Når GitHub Pages er aktivert, vil hver push til `main`-branchen automatisk:
 
 1. Bygge applikasjonen
 2. Deploye til GitHub Pages
-3. Gjøre den tilgjengelig på `https://nilsae74.github.io/Cursor-Tutorial/`
+3. Gjøre den tilgjengelig på `https://nilsae74.github.io/RENE-CloudStream3D/`
 
 ### Manuell Deployment
 
@@ -128,7 +128,7 @@ Vite-konfigurasjonen i `vite.config.js` er satt opp med riktig base path:
 
 ```javascript
 export default defineConfig({
-  base: '/Cursor-Tutorial/',
+  base: '/RENE-CloudStream3D/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
@@ -139,7 +139,7 @@ export default defineConfig({
 ## 📂 Prosjektstruktur
 
 ```
-Cursor-Tutorial/
+RENE-CloudStream3D/
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml          # GitHub Actions deployment workflow
@@ -149,6 +149,9 @@ Cursor-Tutorial/
 │   ├── ui.js                   # GUI og brukergrensesnitt
 │   ├── selection.js            # Seleksjons- og eksportlogikk
 │   ├── stats.js                # Statistikk og dashboard
+│   ├── measurement.js          # Avstandsmåling
+│   ├── profile.js              # Tverrsnitt/profil
+│   ├── grid.js                 # Koordinatgrid
 │   └── report.js               # PDF-rapport generering
 ├── index.html                  # Hoved HTML-fil
 ├── main.js                     # Hovedfil som koordinerer moduler

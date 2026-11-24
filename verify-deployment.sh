@@ -31,7 +31,7 @@ if [ -f "vite.config.js" ]; then
     # Extract repository name from git remote URL
     REPO_NAME=$(git config --get remote.origin.url | sed -e 's/.*\/\([^\/]*\)\.git/\1/' -e 's/.*\/\([^\/]*\)$/\1/')
     if [ -z "$REPO_NAME" ]; then
-        REPO_NAME="Cursor-Tutorial"  # Fallback
+        REPO_NAME="RENE-CloudStream3D"  # Fallback
     fi
     
     if grep -q "base: '/$REPO_NAME/'" vite.config.js; then
@@ -139,7 +139,7 @@ if [ $ERRORS -eq 0 ] && [ $WARNINGS -eq 0 ]; then
     echo "2. Eller trigger manuell deployment fra GitHub Actions"
     echo ""
     echo "Live site vil være tilgjengelig på:"
-    echo "https://nilsae74.github.io/Cursor-Tutorial/"
+    echo "https://nilsae74.github.io/RENE-CloudStream3D/"
     exit 0
 elif [ $ERRORS -eq 0 ]; then
     echo -e "${YELLOW}⚠ Verifisering fullført med $WARNINGS advarsel(er)${NC}"

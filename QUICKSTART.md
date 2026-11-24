@@ -4,7 +4,7 @@
 
 ### 1. Aktiver GitHub Pages (kun første gang)
 
-1. Gå til: `https://github.com/NilsAE74/Cursor-Tutorial/settings/pages`
+1. Gå til: `https://github.com/NilsAE74/RENE-CloudStream3D/settings/pages`
 2. Under "Build and deployment" → **Source**: Velg `GitHub Actions`
 3. Ferdig! ✅
 
@@ -16,13 +16,13 @@ git push origin main
 ```
 
 **Manuelt:**
-1. Gå til: https://github.com/NilsAE74/Cursor-Tutorial/actions
+1. Gå til: https://github.com/NilsAE74/RENE-CloudStream3D/actions
 2. Velg "Deploy to GitHub Pages"
 3. Klikk "Run workflow"
 
 ### 3. Besøk live site
 
-URL: **https://nilsae74.github.io/Cursor-Tutorial/**
+URL: **https://nilsae74.github.io/RENE-CloudStream3D/**
 
 ---
 
@@ -45,11 +45,11 @@ git push origin main  # Trigger automatisk deployment
 
 ## 🔍 Sjekk deployment status
 
-1. **Actions-fanen:** https://github.com/NilsAE74/Cursor-Tutorial/actions
+1. **Actions-fanen:** https://github.com/NilsAE74/RENE-CloudStream3D/actions
    - Grønn hake ✅ = Suksess
    - Rød X ❌ = Feil (klikk for detaljer)
 
-2. **Live site:** https://nilsae74.github.io/Cursor-Tutorial/
+2. **Live site:** https://nilsae74.github.io/RENE-CloudStream3D/
    - Vent 2-3 minutter etter første deployment
    - Hard refresh: `Ctrl+Shift+R` (Windows/Linux) eller `Cmd+Shift+R` (Mac)
 
@@ -68,7 +68,7 @@ git push origin main  # Trigger automatisk deployment
 
 **Løsning:**
 - Åpne nettleserens konsoll (F12)
-- Sjekk at `base: '/Cursor-Tutorial/'` i `vite.config.js` er riktig
+- Sjekk at `base: '/RENE-CloudStream3D/'` i `vite.config.js` er riktig
 
 ### Problem: Build feiler
 

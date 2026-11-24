@@ -23,7 +23,7 @@ All technical requirements for GitHub Pages deployment with Vite are **already i
 
 ```javascript
 export default defineConfig({
-  base: '/Cursor-Tutorial/',  // ✅ Correct base path
+  base: '/RENE-CloudStream3D/',  // ✅ Correct base path
   build: {
     outDir: 'dist',            // ✅ Correct output directory
     assetsDir: 'assets',       // ✅ Assets directory
@@ -40,8 +40,8 @@ npm run build
 
 Output:
 - ✅ Generates `dist/index.html` with correct asset paths
-- ✅ CSS: `/Cursor-Tutorial/assets/index-Bo1UDOKg.css`
-- ✅ JS: `/Cursor-Tutorial/assets/index-DU0N1UEc.js`
+- ✅ CSS: `/RENE-CloudStream3D/assets/index-Bo1UDOKg.css`
+- ✅ JS: `/RENE-CloudStream3D/assets/index-DU0N1UEc.js`
 - ✅ All assets are in `dist/assets/` directory
 
 ### 4. GitHub Pages Configuration ✅
@@ -76,7 +76,7 @@ Output:
 | Workflow triggers on push to main | ✅ | Configured in deploy.yml |
 | Vite builds project successfully | ✅ | Tested locally |
 | Deployment to GitHub Pages configured | ✅ | Uses actions/deploy-pages@v4 |
-| Site available at https://nilsae74.github.io/Cursor-Tutorial/ | ⏳ | Requires manual GitHub Pages enablement |
+| Site available at https://nilsae74.github.io/RENE-CloudStream3D/ | ⏳ | Requires manual GitHub Pages enablement |
 | JavaScript and CSS load correctly | ✅ | Verified in build output |
 
 ## Manual Action Required
@@ -85,10 +85,10 @@ The **only** remaining step that cannot be automated:
 
 ### Enable GitHub Pages in Repository Settings
 
-1. Go to: https://github.com/NilsAE74/Cursor-Tutorial/settings/pages
+1. Go to: https://github.com/NilsAE74/RENE-CloudStream3D/settings/pages
 2. Under "Build and deployment":
    - Set **Source** to: `GitHub Actions`
-3. Go to: https://github.com/NilsAE74/Cursor-Tutorial/settings/actions
+3. Go to: https://github.com/NilsAE74/RENE-CloudStream3D/settings/actions
 4. Under "Workflow permissions":
    - Select `Read and write permissions`
    - Check `Allow GitHub Actions to create and approve pull requests`
@@ -109,7 +109,7 @@ git push origin main
 ### Access Your Site
 
 After successful deployment (1-3 minutes):
-- URL: https://nilsae74.github.io/Cursor-Tutorial/
+- URL: https://nilsae74.github.io/RENE-CloudStream3D/
 
 ## Technical Implementation Details
 
@@ -145,13 +145,13 @@ dist/
 
 All asset references in `dist/index.html` use the correct base path:
 ```html
-<script src="/Cursor-Tutorial/assets/[hash].js"></script>
-<link href="/Cursor-Tutorial/assets/[hash].css">
+<script src="/RENE-CloudStream3D/assets/[hash].js"></script>
+<link href="/RENE-CloudStream3D/assets/[hash].css">
 ```
 
 ## Why This Configuration Works
 
-1. **Vite Base Path**: Ensures all assets are referenced with `/Cursor-Tutorial/` prefix
+1. **Vite Base Path**: Ensures all assets are referenced with `/RENE-CloudStream3D/` prefix
 2. **GitHub Actions Workflow**: Automates build and deployment on every push to main
 3. **`.nojekyll` File**: Prevents GitHub Pages from using Jekyll (which can interfere with SPA routing)
 4. **Correct Permissions**: Allows workflow to deploy to Pages
@@ -173,7 +173,7 @@ See `DEPLOYMENT.md` for comprehensive troubleshooting.
 1. ✅ **Configuration**: Complete (no changes needed)
 2. ⏳ **Enable GitHub Pages**: Manual step (see above)
 3. ⏳ **Trigger deployment**: Push to main or manual trigger
-4. ⏳ **Verify live site**: Check https://nilsae74.github.io/Cursor-Tutorial/
+4. ⏳ **Verify live site**: Check https://nilsae74.github.io/RENE-CloudStream3D/
 
 ## Summary
 
@@ -183,10 +183,10 @@ Once enabled, every push to the `main` branch will automatically:
 1. Build the Vite project
 2. Generate optimized production assets
 3. Deploy to GitHub Pages
-4. Make the site available at https://nilsae74.github.io/Cursor-Tutorial/
+4. Make the site available at https://nilsae74.github.io/RENE-CloudStream3D/
 
 ---
 
 **Generated:** January 7, 2026
-**Repository:** NilsAE74/Cursor-Tutorial
+**Repository:** NilsAE74/RENE-CloudStream3D
 **Status:** Ready for deployment

@@ -14,7 +14,7 @@ Ensure GitHub Pages has been enabled
 
 ### Step 1: Enable GitHub Pages
 
-1. Go to your repository settings: https://github.com/NilsAE74/Cursor-Tutorial/settings/pages
+1. Go to your repository settings: https://github.com/NilsAE74/RENE-CloudStream3D/settings/pages
 
 2. Under **"Build and deployment"**:
    - **Source**: Select `GitHub Actions`
@@ -24,7 +24,7 @@ Ensure GitHub Pages has been enabled
 
 ### Step 2: Verify Workflow Permissions
 
-1. Go to: https://github.com/NilsAE74/Cursor-Tutorial/settings/actions
+1. Go to: https://github.com/NilsAE74/RENE-CloudStream3D/settings/actions
 
 2. Scroll to **"Workflow permissions"**:
    - ✅ Select **"Read and write permissions"**
@@ -44,7 +44,7 @@ git push origin main
 ```
 
 **Option B - Manual trigger:**
-1. Go to: https://github.com/NilsAE74/Cursor-Tutorial/actions
+1. Go to: https://github.com/NilsAE74/RENE-CloudStream3D/actions
 2. Click on **"Deploy to GitHub Pages"** workflow
 3. Click **"Run workflow"**
 4. Select `main` branch
@@ -60,7 +60,7 @@ git push origin main
 
 Once deployed successfully, your site will be available at:
 ```
-https://nilsae74.github.io/Cursor-Tutorial/
+https://nilsae74.github.io/RENE-CloudStream3D/
 ```
 
 ## 📋 Important Notes
@@ -78,7 +78,7 @@ For GitHub Pages to work with private repositories, you need:
 - OR upgrade to GitHub Pro
 
 To make the repository public:
-1. Go to: https://github.com/NilsAE74/Cursor-Tutorial/settings
+1. Go to: https://github.com/NilsAE74/RENE-CloudStream3D/settings
 2. Scroll to the **"Danger Zone"**
 3. Click **"Change repository visibility"**
 4. Select **"Make public"**
@@ -92,7 +92,7 @@ After setup, verify everything is working:
 - [ ] Source is set to "GitHub Actions"
 - [ ] Workflow permissions are set to "Read and write"
 - [ ] Workflow has run successfully (green checkmark in Actions tab)
-- [ ] Site is accessible at https://nilsae74.github.io/Cursor-Tutorial/
+- [ ] Site is accessible at https://nilsae74.github.io/RENE-CloudStream3D/
 - [ ] Application loads correctly (no 404 or blank pages)
 
 ## 🔍 Troubleshooting
@@ -117,7 +117,7 @@ After setup, verify everything is working:
 - Check browser console (F12) for errors
 - Verify `base` in `vite.config.js` matches repository name:
   ```javascript
-  base: '/Cursor-Tutorial/'  // Must match repo name exactly
+  base: '/RENE-CloudStream3D/'  // Must match repo name exactly
   ```
 
 ### Issue: Workflow succeeds but page shows old content
@@ -142,6 +142,6 @@ If you continue to have issues:
 | GitHub Pages Source | GitHub Actions |
 | Workflow Permissions | Read and write |
 | Repository Visibility | Public (or GitHub Pro for private) |
-| Deployment URL | https://nilsae74.github.io/Cursor-Tutorial/ |
-| Vite Base Path | /Cursor-Tutorial/ |
+| Deployment URL | https://nilsae74.github.io/RENE-CloudStream3D/ |
+| Vite Base Path | /RENE-CloudStream3D/ |
 | Build Output | ./dist |

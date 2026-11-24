@@ -41,11 +41,11 @@ Comprehensive deployment documentation including:
 ## 🚀 Quick Start (2 Minutes)
 
 1. **Enable GitHub Pages:**
-   - Go to: https://github.com/NilsAE74/Cursor-Tutorial/settings/pages
+   - Go to: https://github.com/NilsAE74/RENE-CloudStream3D/settings/pages
    - Set **Source** to: `GitHub Actions`
 
 2. **Set Permissions:**
-   - Go to: https://github.com/NilsAE74/Cursor-Tutorial/settings/actions
+   - Go to: https://github.com/NilsAE74/RENE-CloudStream3D/settings/actions
    - Select: `Read and write permissions`
    - Check: `Allow GitHub Actions to create and approve pull requests`
 
@@ -60,7 +60,7 @@ Comprehensive deployment documentation including:
    OR manually trigger from Actions tab
 
 5. **Access Your Site:**
-   - URL: https://nilsae74.github.io/Cursor-Tutorial/
+   - URL: https://nilsae74.github.io/RENE-CloudStream3D/
    - Wait 1-3 minutes after first deployment
 
 ## 🔧 What Changed in the Repository
@@ -107,7 +107,7 @@ After following the setup:
 - [ ] Workflow permissions set (Settings → Actions → Read and write)
 - [ ] Repository is public OR you have GitHub Pro
 - [ ] Workflow runs successfully (Actions tab shows green ✓)
-- [ ] Site is accessible at https://nilsae74.github.io/Cursor-Tutorial/
+- [ ] Site is accessible at https://nilsae74.github.io/RENE-CloudStream3D/
 - [ ] Application loads without errors (check browser console)
 
 ## 🎯 Next Steps
@@ -132,7 +132,7 @@ If deployment still fails after setup:
 Once setup is complete:
 - Every push to `main` automatically deploys
 - Site updates within 1-3 minutes
-- Live at: https://nilsae74.github.io/Cursor-Tutorial/
+- Live at: https://nilsae74.github.io/RENE-CloudStream3D/
 - Full 3D point cloud visualization available online
 
 ---

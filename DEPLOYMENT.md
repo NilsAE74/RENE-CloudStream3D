@@ -43,7 +43,7 @@ Scriptet vil sjekke:
 ### Aktivere Deployment (Første gang)
 
 1. **Gå til Repository Settings**
-   - Naviger til `https://github.com/NilsAE74/Cursor-Tutorial/settings`
+   - Naviger til `https://github.com/NilsAE74/RENE-CloudStream3D/settings`
    - Eller klikk på **Settings**-fanen øverst i repositoryet
 
 2. **Konfigurer GitHub Pages**
@@ -79,7 +79,7 @@ Scriptet vil sjekke:
    - En grønn hake ✅ betyr suksess
 
 6. **Besøk Din Live Site**
-   - URL: `https://nilsae74.github.io/Cursor-Tutorial/`
+   - URL: `https://nilsae74.github.io/RENE-CloudStream3D/`
    - Det kan ta 1-2 minutter ekstra før siden er tilgjengelig første gang
 
 ## 🔄 Automatisk Deployment
@@ -161,10 +161,10 @@ Hvis deployment feiler:
 
 ```bash
 # Åpne i nettleser
-https://nilsae74.github.io/Cursor-Tutorial/
+https://nilsae74.github.io/RENE-CloudStream3D/
 
 # Eller bruk curl
-curl -I https://nilsae74.github.io/Cursor-Tutorial/
+curl -I https://nilsae74.github.io/RENE-CloudStream3D/
 ```
 
 ## 🐛 Feilsøking
@@ -185,7 +185,7 @@ Ensure GitHub Pages has been enabled
 📖 **Se [SETUP_GITHUB_PAGES.md](SETUP_GITHUB_PAGES.md) for detaljerte instruksjoner.**
 
 Kort oppsummering:
-1. Gå til https://github.com/NilsAE74/Cursor-Tutorial/settings/pages
+1. Gå til https://github.com/NilsAE74/RENE-CloudStream3D/settings/pages
 2. Under "Build and deployment", sett **Source** til `GitHub Actions`
 3. Sørg for at workflow permissions er satt til "Read and write"
 4. Hvis repositoryet er **privat**, kreves GitHub Pro eller du må gjøre det offentlig
@@ -222,7 +222,7 @@ git push
 1. Sjekk nettleserens konsoll (F12) for feil
 2. Verifiser `base` path i `vite.config.js`:
    ```javascript
-   base: '/Cursor-Tutorial/'  // Må matche repo-navn
+   base: '/RENE-CloudStream3D/'  // Må matche repo-navn
    ```
 3. Sjekk at alle assets lastes fra riktig path
 
@@ -234,7 +234,7 @@ Kontroller at `base` i `vite.config.js` matcher repository-navnet:
 ```javascript
 // vite.config.js
 export default defineConfig({
-  base: '/Cursor-Tutorial/',  // <-- Viktig!
+  base: '/RENE-CloudStream3D/',  // <-- Viktig!
 })
 ```
 
@@ -254,7 +254,7 @@ export default defineConfig({
 Legg til i README.md for å vise deployment status:
 
 ```markdown
-![Deploy Status](https://github.com/NilsAE74/Cursor-Tutorial/actions/workflows/deploy.yml/badge.svg)
+![Deploy Status](https://github.com/NilsAE74/RENE-CloudStream3D/actions/workflows/deploy.yml/badge.svg)
 ```
 
 ### Deployment History
@@ -315,7 +315,7 @@ For staging/production setup:
 
 1. Opprett ny branch `staging`
 2. Dupliser workflow-fil for staging
-3. Deploy `staging` → `https://nilsae74.github.io/Cursor-Tutorial/staging/`
+3. Deploy `staging` → `https://nilsae74.github.io/RENE-CloudStream3D/staging/`
 
 ## 📞 Support
 
@@ -339,7 +339,7 @@ For staging/production setup:
 - [ ] `npm run build` fungerer lokalt
 - [ ] `.github/workflows/deploy.yml` finnes og er riktig
 - [ ] Første deployment kjørt og fullført
-- [ ] Live site tilgjengelig på `https://nilsae74.github.io/Cursor-Tutorial/`
+- [ ] Live site tilgjengelig på `https://nilsae74.github.io/RENE-CloudStream3D/`
 - [ ] Hard refresh testet i nettleser
 - [ ] Funksjonalitet verifisert på live site
 

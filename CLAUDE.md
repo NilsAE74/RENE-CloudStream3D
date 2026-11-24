@@ -68,7 +68,6 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 
 ## Kjente forhold å være obs på
 
-- `README.md` og flere `*.md`-filer (DEPLOYMENT*, QUICK_FIX, SETUP_GITHUB_PAGES, VERIFICATION_SUMMARY) refererer fortsatt til det gamle repo-navnet `Cursor-Tutorial`. Gjeldende navn er `RENE-CloudStream3D`.
-- `package.json` har navnet `three-js-tutorial` og en ubrukt avhengighet `"all": "^0.0.0"`.
-- `.gitignore` ignorerer `*.txt`, men `prompt.txt` (historiske utviklingsprompter) er sporet. Nye `.txt`-testfiler blir ikke committet.
+- `prompt.txt` inneholder historiske utviklingsprompter, ikke kode.
+- `.txt` er ikke lenger ignorert i `.gitignore`. Ikke commit store punktsky-filer (`.txt`/`.xyz`) til repoet.
 - `index.html` lenker `/style.css` og `/public/CloudStream3D-logo.png` med absolutte stier; sjekk at de fungerer med `base`-stien i produksjon ved endringer.

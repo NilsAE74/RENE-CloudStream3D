@@ -10,13 +10,13 @@ Error: Failed to create deployment (status: 404)
 ## The Solution (2 minutes)
 
 ### Step 1: Enable GitHub Pages
-1. Go to: https://github.com/NilsAE74/Cursor-Tutorial/settings/pages
+1. Go to: https://github.com/NilsAE74/RENE-CloudStream3D/settings/pages
 2. Under "Build and deployment":
    - Set **Source** to: `GitHub Actions`
 3. Click **Save** (if button appears)
 
 ### Step 2: Set Permissions
-1. Go to: https://github.com/NilsAE74/Cursor-Tutorial/settings/actions
+1. Go to: https://github.com/NilsAE74/RENE-CloudStream3D/settings/actions
 2. Under "Workflow permissions":
    - Select: `Read and write permissions`
    - Check: `Allow GitHub Actions to create and approve pull requests`
@@ -29,7 +29,7 @@ Error: Failed to create deployment (status: 404)
 - If NO (public) → You're good to go!
 
 To make it public (if needed):
-1. Go to: https://github.com/NilsAE74/Cursor-Tutorial/settings
+1. Go to: https://github.com/NilsAE74/RENE-CloudStream3D/settings
 2. Scroll to "Danger Zone"
 3. Click "Change visibility" → "Make public"
 
@@ -43,14 +43,14 @@ git push origin main
 ```
 
 **Option B - Manual trigger:**
-1. Go to: https://github.com/NilsAE74/Cursor-Tutorial/actions
+1. Go to: https://github.com/NilsAE74/RENE-CloudStream3D/actions
 2. Click "Deploy to GitHub Pages"
 3. Click "Run workflow" → Select `main` → "Run workflow"
 
 ### Step 5: Wait and Access
 
 - Wait 1-3 minutes for deployment
-- Access your site: https://nilsae74.github.io/Cursor-Tutorial/
+- Access your site: https://nilsae74.github.io/RENE-CloudStream3D/
 
 ## 📖 Need More Details?
 
@@ -59,7 +59,7 @@ See [SETUP_GITHUB_PAGES.md](SETUP_GITHUB_PAGES.md) for complete instructions.
 ## ✅ Success Indicators
 
 - ✅ Green checkmark in Actions tab
-- ✅ Site loads at https://nilsae74.github.io/Cursor-Tutorial/
+- ✅ Site loads at https://nilsae74.github.io/RENE-CloudStream3D/
 - ✅ No errors in browser console
 
 ## ❌ Still Not Working?
