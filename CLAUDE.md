@@ -47,6 +47,7 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 ### Koordinater og offset (kritisk)
 - Input er typisk UTM (f.eks. X ≈ 500.000, Y ≈ 6.000.000). Float32 har bare ~7 gjeldende siffer: absolutte UTM-verdier i `Float32Array` avrundes til 0,5 m (Y) / 3 cm (X). **Lagre aldri absolutte UTM-koordinater i `Float32Array`.**
 - `parser.parseXYZFile` lagrer posisjoner relativt til første punkt (`origin`, double). `parser.centerPositions(positions, bounds, origin)` flytter dem så til senter; `offset` (double) er senter i absolutte koordinater. Bounds er alltid absolutte (double).
+- `centerPositions` endrer en `Float32Array` **in-place** (vanlige arrays skrives til ny `Float32Array`, differansen regnes i double først). `viewer.addPointCloud` bruker `THREE.BufferAttribute` uten kopi, så geometrien eier arrayene fra parseren. Ikke bruk usentrerte `positions` etter sentrering, og ikke bytt tilbake til `Float32BufferAttribute` (kopierer).
 - Offset må settes i **alle** konsumenter ved hver innlasting: `selection`, `viewer`, `measurementTool`, `profileTool` (se `main.js`). Ny modul som viser/eksporterer koordinater må også få offset.
 - Scene-koordinater = sentrerte. Alt som vises til bruker, eksporteres eller skrives i rapport skal være **originale** koordinater (sentrert + offset).
 - Z er opp (`camera.up = (0,0,1)`), som i GIS/oppmåling. Ikke bytt til Three.js sin Y-opp-konvensjon.
@@ -86,7 +87,6 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 ## Åpne punkter (GitHub-issues)
 
 - #5 Filer over ca. 512 MB (lese filen i biter)
-- #6 Fjerne ekstra kopier av punktene ved innlasting (minne)
 - #7 Komma-/semikolonseparerte filer
 - #8 PLY-filer med flater (face-linjer leses som punkter), binær PLY/PCD
 - #9 Lisenstekst i README

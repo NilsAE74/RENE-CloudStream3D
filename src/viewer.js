@@ -128,8 +128,11 @@ export class PointCloudViewer {
 
     // Opprett BufferGeometry
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    // BufferAttribute bruker Float32Array direkte (Float32BufferAttribute ville kopiert den).
+    // Arrayene eies dermed av geometrien; statistikk og Z-invertering leser/endrer dem der.
+    const toFloat32 = (a) => (a instanceof Float32Array ? a : new Float32Array(a));
+    geometry.setAttribute('position', new THREE.BufferAttribute(toFloat32(positions), 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(toFloat32(colors), 3));
 
     // Opprett materiale for punktene
     const material = new THREE.PointsMaterial({

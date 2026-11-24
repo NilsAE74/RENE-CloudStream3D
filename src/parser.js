@@ -82,8 +82,8 @@ export function parseXYZFile(content) {
 
   const count = pIndex / 3;
 
-  // Trim ned til faktisk størrelse (kopier bare hvis mye plass er ubrukt,
-  // ellers holder det med et view; arrayet kopieres uansett til GPU-bufferet)
+  // Trim ned til faktisk størrelse. Arrayet brukes direkte i geometrien (ingen kopi),
+  // så kopier bare hvis mye plass er ubrukt; ellers holder det med et view (<1 % ekstra).
   if (pIndex < positions.length) {
     positions = (positions.length - pIndex > positions.length * 0.01)
       ? positions.slice(0, pIndex)
@@ -121,7 +121,8 @@ export function parseXYZFile(content) {
  * @param {Float32Array|number[]} positions - Posisjoner relativt til `origin`
  * @param {Object} bounds - Absolutte bounds
  * @param {Object} origin - Origo som posisjonene er relative til (default 0,0,0 = absolutte posisjoner)
- * @returns {{centeredPositions: Float32Array, offset: {x,y,z}}} offset er i absolutte koordinater
+ * @returns {{centeredPositions: Float32Array, offset: {x,y,z}}} offset er i absolutte koordinater.
+ *   Er `positions` en Float32Array, endres den in-place og returneres som `centeredPositions`.
  */
 export function centerPositions(positions, bounds, origin = { x: 0, y: 0, z: 0 }) {
   const centerX = (bounds.minX + bounds.maxX) / 2;
@@ -135,12 +136,13 @@ export function centerPositions(positions, bounds, origin = { x: 0, y: 0, z: 0 }
 
   console.log(`Centering offset: ${centerX}, ${centerY}, ${centerZ}`);
 
-  // Hvis positions allerede er Float32Array, er dette raskt.
-  // Vi kan modifisere in-place for å spare 50% minne:
-  // const centeredPositions = positions;
-
-  // ELLER lage kopi for sikkerhets skyld (men bruk samme type):
-  const centeredPositions = new Float32Array(positions.length);
+  // Float32Array sentreres in-place (ingen ekstra kopi av punktene, se issue #6).
+  // Kalleren får tilbake samme array og skal ikke bruke de usentrerte verdiene etterpå.
+  // Vanlige arrays (default-skyen, absolutte UTM-verdier i double) skrives til en ny
+  // Float32Array; differansen regnes i double FØR lagring, ellers tapes presisjon.
+  const centeredPositions = positions instanceof Float32Array
+    ? positions
+    : new Float32Array(positions.length);
 
   for (let i = 0; i < positions.length; i += 3) {
     centeredPositions[i] = positions[i] - shiftX;
