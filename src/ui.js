@@ -511,9 +511,10 @@ function handleInvertZ() {
     return;
   }
 
-  const { center, size, positions, boundingBox, originalMinZ, originalMaxZ } = result;
+  const { center, size, boundingBox, statsPositions, statsBox, originalMinZ, originalMaxZ } = result;
 
-  const pointCount = positions.length / 3;
+  // Statistics cover data points only (default cloud: terrain, not the logo)
+  const pointCount = statsPositions.length / 3;
 
   // Get coordinate offset to calculate original X/Y bounds
   const offset = viewer.getCoordinateOffset();
@@ -533,13 +534,13 @@ function handleInvertZ() {
   // Statistics use the centered positions directly (inverted in place by the viewer).
   // offset.z is already inverted, so centered Z + offset.z gives the original Z.
   stats.updateDashboard(pointCount, {
-    minX: boundingBox.min.x + offset.x,
-    maxX: boundingBox.max.x + offset.x,
-    minY: boundingBox.min.y + offset.y,
-    maxY: boundingBox.max.y + offset.y,
+    minX: statsBox.min.x + offset.x,
+    maxX: statsBox.max.x + offset.x,
+    minY: statsBox.min.y + offset.y,
+    maxY: statsBox.max.y + offset.y,
     minZ: originalMinZ,  // Already converted to original in viewer.js
     maxZ: originalMaxZ   // Already converted to original in viewer.js
-  }, positions, '', offset.z);
+  }, statsPositions, '', offset.z);
 
   // Update legend and GUI with the (inverted) color scale; points are already recolored by the viewer
   updateLegend();
@@ -549,7 +550,7 @@ function handleInvertZ() {
   if (currentStats) {
     currentStats.minZ = originalMinZ;
     currentStats.maxZ = originalMaxZ;
-    currentStats.positions = positions;  // Centered positions for histogram
+    currentStats.positions = statsPositions;  // Centered positions for histogram
     currentStats.zOffset = offset.z;
     console.log('Statistics updated for PDF export with inverted Z-values and positions');
   }
