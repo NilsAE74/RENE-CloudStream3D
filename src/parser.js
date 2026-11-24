@@ -162,6 +162,23 @@ export function parseXYZFile(content) {
     pIndex += 3;
   }
 
+  return finishPoints(
+    positions, pIndex,
+    { x: originX, y: originY, z: originZ },
+    { minX, maxX, minY, maxY, minZ, maxZ },
+    format // { delimiter, decimalComma }
+  );
+}
+
+/**
+ * Felles avslutning for alle parsere: trimmer positions og lager høydefarger.
+ * @param {Float32Array} positions - Posisjoner RELATIVT til origin (kan være overallokert)
+ * @param {number} pIndex - Antall brukte verdier (3 per punkt)
+ * @param {{x,y,z}} origin - Origo i full presisjon (double)
+ * @param {Object} bounds - Absolutte bounds
+ * @param {Object} format - Formatbeskrivelse som returneres uendret
+ */
+export function finishPoints(positions, pIndex, origin, bounds, format) {
   const count = pIndex / 3;
 
   // Trim ned til faktisk størrelse. Arrayet brukes direkte i geometrien (ingen kopi),
@@ -172,6 +189,8 @@ export function parseXYZFile(content) {
       : positions.subarray(0, pIndex);
   }
   const colors = new Float32Array(pIndex);
+  const { minZ, maxZ } = bounds;
+  const originZ = origin.z;
 
   console.log(`Parsed ${count} points. Z-Range: ${minZ} to ${maxZ}`);
 
@@ -193,9 +212,9 @@ export function parseXYZFile(content) {
     positions, // Float32Array, RELATIVT til origin
     colors,    // Float32Array
     count,
-    format,    // { delimiter, decimalComma }
-    bounds: { minX, maxX, minY, maxY, minZ, maxZ }, // Absolutte koordinater
-    origin: { x: originX, y: originY, z: originZ }  // Full presisjon
+    format,
+    bounds,    // Absolutte koordinater
+    origin     // Full presisjon
   };
 }
 

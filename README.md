@@ -12,6 +12,10 @@ Applikasjonen er deployet og tilgjengelig på:
 ## 📋 Funksjoner
 
 - 📂 Last opp og visualiser punktsky-filer (.xyz, .txt, .csv, .pcd, .ply). Skilletegn: mellomrom, tab, komma eller semikolon; desimalpunktum eller desimalkomma
+  - PLY: ASCII og binær little endian. Bare vertex-data leses (flater/faces ignoreres), x/y/z kan stå i vilkårlig rekkefølge, float eller double
+  - PCD: `DATA ascii` og `DATA binary`. NaN-punkter hoppes over
+  - Ikke støttet: binær big endian PLY og komprimert PCD (`binary_compressed`). Disse gir en feilmelding
+  - UTM-koordinater beholder full presisjon (double) også for binære filer
 - 🎨 Interaktivt 3D-grensesnitt med orbit-kontroller
 - 📊 Sanntids-statistikk og histogram for høydedata
 - 🔲 Seleksjonsverktøy for å velge og eksportere punkter

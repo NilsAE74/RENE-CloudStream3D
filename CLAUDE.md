@@ -16,7 +16,7 @@ npm run preview    # forhåndsvis dist/
 npm test           # parser-tester (node --test)
 ```
 
-`npm test` kjører parser-testene i `test/` (Node sin innebygde `node:test`, ingen avhengigheter; kjøres ikke i CI). Det finnes ingen linter eller formatter. Verifiser endringer med `npm test`, `npm run build` og manuell test i nettleser (`npm run dev`). Nye parser-regler skal ha testtilfeller. Chunk-size-advarselen (~1 MB bundle) ved build er kjent og ufarlig.
+`npm test` kjører parser-testene i `test/` (inkl. PLY/PCD, med binære testdata bygget med `DataView`) (Node sin innebygde `node:test`, ingen avhengigheter; kjøres ikke i CI). Det finnes ingen linter eller formatter. Verifiser endringer med `npm test`, `npm run build` og manuell test i nettleser (`npm run dev`). Nye parser-regler skal ha testtilfeller. Chunk-size-advarselen (~1 MB bundle) ved build er kjent og ufarlig.
 
 ## Deploy
 
@@ -26,12 +26,12 @@ npm test           # parser-tester (node --test)
 
 ## Arkitektur
 
-`main.js` er "dirigenten": initialiserer alle moduler, kobler dem sammen og eier fil-innlastingsflyten (file input, drag-and-drop, default-sky ved oppstart).
+`main.js` er "dirigenten": initialiserer alle moduler, kobler dem sammen og eier fil-innlastingsflyten (file input, drag-and-drop, default-sky ved oppstart). Filer leses med `readPointFile` + `parsePointFile` fra `src/pointFormats.js`.
 
 | Fil | Ansvar |
 |---|---|
 | `src/viewer.js` | `PointCloudViewer`-klasse (scene, kamera, renderer, OrbitControls, punktsky, Z-invertering, eksplosjonsanimasjon, kartbilde for rapport). Eksporterer en singleton `defaultViewer` via wrapper-funksjoner (`viewer.getScene()`, `viewer.addPointCloud()` osv.). |
-| `src/parser.js` | `parseXYZFile` (regex-basert, Float32Array), `centerPositions`, `generateDefaultCloud` (syntetisk terreng), `generateLogoCloud` (punktsky fra logo-PNG). |
+| `src/parser.js` | `parseXYZFile` (regex-basert, Float32Array), `finishPoints` (felles trimming + høydefarger), `centerPositions`, `generateDefaultCloud` (syntetisk terreng), `generateLogoCloud` (punktsky fra logo-PNG). |
 | `src/ui.js` | lil-gui-panel, toolbar, settings-objekter (`settings`, `boxSettings`, `reportSettings`, `measurementSettings`, `profileSettings`), høydelegende, `DraggablePanel`-klasse. |
 | `src/stats.js` | Dashboard (statistikk, histogram), meldinger (`showDashboardMessage`), loading-spinner. |
 | `src/selection.js` | Seleksjonsboks med TransformControls, velg/eksporter punkter. |
@@ -39,6 +39,7 @@ npm test           # parser-tester (node --test)
 | `src/profile.js` | Tverrsnitt/profil langs en linje med tykkelse. Har både løse modulfunksjoner og `ProfileTool`-klasse. |
 | `src/grid.js` | Survey-grid med originale koordinater. |
 | `src/report.js` | PDF-rapport med jsPDF (kartbilde, statistikk, histogram, ev. profil). |
+| `src/pointFormats.js` | PLY/PCD: `parseHeader` (header → beskrivelse av dataene), `parseAsciiBody`, `parseBinaryBody` (egen `DataView`-leser), `PointBuilder` (origo/bounds/NaN), `readPointFile` / `parsePointFile` (innlesing i nettleser). |
 | `src/colorScale.js` | Felles fargeskala for høydefarger (auto/manuell min–maks, `heightToColor`) og desimalregler for Z (`zDecimals`, `labelDecimals`). |
 
 Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare settings-objekter eksportert fra `ui.js`. Verktøy-instanser (measurement, profile) injiseres med `setMeasurementTool` / `setProfileTool`.
@@ -59,9 +60,16 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 - Eksport av valgte punkter skrives med 3 desimaler (mm).
 
 ### Filformater
-- Akseptert: `.xyz`, `.txt`, `.csv`, `.pcd`, `.ply`. Parseren er en ASCII-parser som leser de **tre første tallene på hver linje** (regex med `^` og flagg `m`, aldri over linjeskift). Ekstra kolonner (intensitet, RGB) ignoreres; linjer som ikke starter med tre tall (headere, kommentarer, PCD/PLY-header) hoppes over.
+- Akseptert: `.xyz`, `.txt`, `.csv`, `.pcd`, `.ply`. Typen avgjøres av **innholdet**, ikke filendelsen: `readPointFile` leser de første 64 KB (`file.slice`), og `parseHeader` ser etter PLY-header (første linje `ply`) eller PCD-header (første linje som ikke er kommentar er `VERSION`/`FIELDS`). Deretter leses hele filen **én gang**, som `ArrayBuffer` (binær) eller tekst.
+- **Uten header** (`.xyz`/`.txt`/`.csv`): `parseXYZFile`, en ASCII-parser som leser de **tre første tallene på hver linje** (regex med `^` og flagg `m`, aldri over linjeskift). Ekstra kolonner (intensitet, RGB) ignoreres; linjer som ikke starter med tre tall (headere, kommentarer) hoppes over.
 - Skilletegn og desimaltegn finnes av `detectFormat` ut fra de første 50 datalinjene, og `buildLineRegex` lager regex for formatet: mellomrom/tab, `,` eller `;` som skilletegn. `;` → desimalkomma hvis det finnes komma. Komma der de tre første mellomrom-separerte feltene er tall med desimalkomma (`1,5 2,5 3,5`) → desimalkomma; ellers er komma skilletegn (`1.5,2.5,3.5`, `1.5, 2.5, 3.5`). Skilletegn velges ved flertall; desimalkomma hvis minst én linje har det.
-- Støttes **ikke**: binære PCD/PLY, og PLY-filer med flater (face-linjer som `3 0 1 2` blir lest som punkter).
+- **PLY** (`ascii`, `binary_little_endian`): bare de N radene i `element vertex N` leses; andre elementer (faces o.l.) hoppes over, også når de står før vertex (binær: list-properties gås gjennom). x/y/z finnes fra rekkefølgen på `property`-linjene (trenger ikke stå først). Alle skalartyper (char…double) støttes; vertex med list-property støttes ikke.
+- **PCD** (`DATA ascii`, `DATA binary`): x/y/z-kolonner/offsets fra `FIELDS`, `SIZE`, `TYPE`, `COUNT` (COUNT > 1 gir flere kolonner). Antall fra `POINTS` (ev. `WIDTH × HEIGHT`). Binær PCD antas little endian.
+- Punkter med NaN/Inf (vanlig i organiserte PCD-skyer) hoppes over av `PointBuilder`.
+- Binær lesing bruker egen `DataView`-leser. **Ikke bruk `PLYLoader`/`PCDLoader` fra three**: de lagrer absolutte koordinater i `Float32Array` og mister UTM-presisjon. Origo trekkes fra i double før lagring, som i `parseXYZFile`.
+- Ikke støttet, gir tydelig feilmelding i dashboardet før eksplosjonen/innlasting: PLY `binary_big_endian`, PCD `DATA binary_compressed`, header uten `end_header`/`DATA` innen 64 KB, manglende x/y/z, avkortet binærfil.
+- Header og data er adskilt (`parseHeader` → `dataStart`, deretter body-parser + `PointBuilder`) for å kunne gjenbrukes ved strømming i biter (#5). ASCII-stien tolker headeren på nytt i den dekodede teksten, siden `dataStart` fra 64 KB-proben er en byte-offset.
+- Alle parsere returnerer samme struktur: `{ positions, colors, count, bounds, origin, format }`. `format` er `{ delimiter, decimalComma }` for filer uten header, ellers `{ type: 'ply'|'pcd', encoding: 'ascii'|'binary' }`.
 
 ### Høydefarger og Z-visning
 - All høydefarging går via `src/colorScale.js` (blå ved min → rød ved maks, klippet utenfor). Ikke lag egne HSL-beregninger; bruk `heightToColor` / `heightToHue`.
@@ -89,5 +97,4 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 ## Åpne punkter (GitHub-issues)
 
 - #5 Filer over ca. 512 MB (lese filen i biter)
-- #8 PLY-filer med flater (face-linjer leses som punkter), binær PLY/PCD
 - #9 Lisenstekst i README
