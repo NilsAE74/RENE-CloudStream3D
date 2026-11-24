@@ -11,10 +11,12 @@ Applikasjonen er deployet og tilgjengelig på:
 
 ## 📋 Funksjoner
 
-- 📂 Last opp og visualiser punktsky-filer (.xyz, .txt, .csv, .pcd, .ply). Skilletegn: mellomrom, tab, komma eller semikolon; desimalpunktum eller desimalkomma
+- 📂 Last opp og visualiser punktsky-filer (.xyz, .txt, .csv, .pcd, .ply, .las, .laz). Skilletegn: mellomrom, tab, komma eller semikolon; desimalpunktum eller desimalkomma
   - PLY: ASCII og binær little endian. Bare vertex-data leses (flater/faces ignoreres), x/y/z kan stå i vilkårlig rekkefølge, float eller double
   - PCD: `DATA ascii` og `DATA binary`. NaN-punkter hoppes over
-  - Ikke støttet: binær big endian PLY og komprimert PCD (`binary_compressed`). Disse gir en feilmelding
+  - LAS: versjon 1.0–1.4, punktformat 0–10. Koordinatene regnes som heltall × skala + offset i double. Poster med ekstra bytes støttes
+  - LAZ (komprimert LAS): punktformat 0–3 og 6–8, dekomprimert med [laz-perf](https://github.com/hobuinc/laz-perf) (WebAssembly). laz-perf lastes først når en LAZ-fil åpnes. Den komprimerte filen må ligge i minnet under dekomprimering (maks ca. 1,8 GB LAZ-fil)
+  - Ikke støttet: binær big endian PLY, komprimert PCD (`binary_compressed`) og LAZ med waveform-punktformat (4, 5, 9, 10). Disse gir en feilmelding
   - UTM-koordinater beholder full presisjon (double) også for binære filer
   - Store filer leses i biter, så filer over 512 MB (nettleserens grense for én tekststreng) kan lastes. Fremdrift vises i prosent. Testet med 20 mill. punkter (600 MB): ca. 8 s innlesing i Chromium
 - 🎨 Interaktivt 3D-grensesnitt med orbit-kontroller
@@ -31,6 +33,7 @@ Applikasjonen er deployet og tilgjengelig på:
 - [lil-gui](https://lil-gui.georgealways.com/) - GUI-kontroller
 - [jsPDF](https://github.com/parallax/jsPDF) - PDF-generering
 - [html2canvas](https://html2canvas.hertzen.com/) - Screenshot-funksjonalitet
+- [laz-perf](https://github.com/hobuinc/laz-perf) - LAZ-dekomprimering (WebAssembly, Apache-2.0)
 
 ## 🏗️ Installasjon og Lokal Utvikling
 
@@ -163,18 +166,16 @@ Hvis 3D-visningen er svart etter deployment:
 
 ## 📝 Lisens
 
-Dette prosjektet er laget som en tutorial og er fritt tilgjengelig for bruk.
+Copyright © 2026 Reinertsen New Energy AS. Alle rettigheter forbeholdt.
 
-## 👤 Forfatter
+RENE CloudStream3D er proprietær programvare. Koden kan ikke brukes, kopieres, endres eller distribueres uten skriftlig tillatelse fra Reinertsen New Energy AS, selv om repoet er offentlig. Se [`LICENSE`](LICENSE).
 
-**NilsAE74**
+### Tredjepartskomponenter
 
-- GitHub: [@NilsAE74](https://github.com/NilsAE74)
+Appen bruker åpen kildekode med egne lisenser (MIT, Apache-2.0 o.l., bl.a. Three.js, jsPDF, html2canvas, lil-gui og laz-perf). Lisenstekstene ligger i [`public/THIRD_PARTY_LICENSES.txt`](public/THIRD_PARTY_LICENSES.txt) og publiseres med siden (`/RENE-CloudStream3D/THIRD_PARTY_LICENSES.txt`).
 
-## 🤝 Bidrag
+Filen lages av `scripts/third-party-licenses.mjs` fra `package-lock.json` og oppdateres automatisk ved `npm run build` (eller manuelt med `npm run licenses`). Pakker uten lisensfil i npm-pakken (f.eks. laz-perf) må ha teksten i `scripts/licenses/<pakkenavn>.txt`, ellers stopper bygget. Commit den oppdaterte filen når avhengighetene endres.
 
-Bidrag, issues og feature requests er velkomne!
+## 👤 Utvikling
 
-## ⭐ Støtt Prosjektet
-
-Hvis du synes dette prosjektet er nyttig, gi det gjerne en ⭐ på GitHub!
+Utviklet for Reinertsen New Energy av [@NilsAE74](https://github.com/NilsAE74).
