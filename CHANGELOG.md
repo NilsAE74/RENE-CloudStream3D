@@ -13,10 +13,13 @@ Versjonen og commit-hashen står nederst i appen og i bunnteksten i PDF-rapporte
 ## [Unreleased]
 
 ### Lagt til
+- **LAS og LAZ** (#15, PR #16): `.las` (versjon 1.0–1.4, punktformat 0–10) og `.laz` (komprimert LAS, punktformat 0–3 og 6–8). UTM-presisjonen beholdes. Filtypen avgjøres av innholdet. LAZ dekomprimeres med laz-perf (WebAssembly), som lastes først når en LAZ-fil åpnes. Testet mot CloudCompare med en fil fra hoydedata.no. Ikke støttet, med tydelig feilmelding: LAZ med waveform-punktformat (4, 5, 9, 10) og LAZ-filer over 1,8 GB.
 - Versjonsnummer i appen, i konsollen og i PDF-rapporten: `CloudStream3D v1.0.0-rc.1 (161da9e)`. Byggetidspunktet vises når du holder musen over etiketten.
 - Denne endringsloggen.
+- **Tredjepartslisenser** (#9, PR #16): `THIRD_PARTY_LICENSES.txt` med lisensene til bibliotekene appen bruker, publisert med siden.
 
 ### Endret
+- **Lisens** (#9, PR #16): proprietær, Copyright Reinertsen New Energy AS (`LICENSE`). Tidligere sto det at prosjektet var en fritt tilgjengelig tutorial.
 - Deploy kjører testene før bygging. En feilende test stopper publiseringen.
 
 ## [1.0.0-rc.1] - 2026-11-24

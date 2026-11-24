@@ -527,14 +527,14 @@ body.addEventListener('drop', (e) => {
     const file = files[0];
 
     // Check file type
-    const validExtensions = ['.txt', '.xyz', '.csv', '.pcd', '.ply'];
+    const validExtensions = ['.txt', '.xyz', '.csv', '.pcd', '.ply', '.las', '.laz'];
     const fileName = file.name.toLowerCase();
     const isValid = validExtensions.some(ext => fileName.endsWith(ext));
 
     if (isValid) {
       loadFile(file);
     } else {
-      stats.showDashboardMessage('Invalid file type. Supported formats: .txt, .xyz, .csv, .pcd, .ply', 'error');
+      stats.showDashboardMessage('Invalid file type. Supported formats: .txt, .xyz, .csv, .pcd, .ply, .las, .laz', 'error');
     }
   }
 });

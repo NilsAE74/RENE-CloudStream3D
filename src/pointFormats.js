@@ -1,5 +1,5 @@
 /**
- * PLY- og PCD-støtte (issue #8) og innlesing av filer i biter (issue #5).
+ * PLY- og PCD-støtte (issue #8), LAS/LAZ-støtte (issue #15) og innlesing av filer i biter (issue #5).
  *
  * Todelt oppbygning:
  *   1. parseHeader(text)  – tolker bare headeren og beskriver dataene
@@ -11,7 +11,9 @@
  * én streng eller én ArrayBuffer (Chrome/Edge tillater maks ca. 512 MB per streng):
  *   - Tekst (.xyz/.txt/.csv, ASCII PLY/PCD): file.stream() dekodes med TextDecoder
  *     (stream: true) og parses bit for bit (XYZChunkParser / AsciiBodyParser).
- *   - Binær PLY/PCD: leses i vinduer på BINARY_WINDOW_BYTES med file.slice().
+ *   - Binær PLY/PCD og LAS: leses i vinduer på BINARY_WINDOW_BYTES med file.slice().
+ *   - LAZ: den komprimerte filen kopieres i vinduer inn i WASM-minnet til laz-perf
+ *     (se parseLazFile), og punktene dekodes ett og ett.
  *
  * Presisjon: som i parseXYZFile lagres posisjonene relativt til første punkt (origin,
  * double). Differansen regnes i double før lagring i Float32Array. three sine
@@ -109,9 +111,13 @@ function* headerLines(text, start = 0) {
  *   { type: 'none' }                                  – ingen PLY/PCD-header (.xyz/.txt/.csv)
  *   { type: 'ply', encoding, count, dataStart, elements, vertexIndex, columns, props, stride }
  *   { type: 'pcd', encoding, count, dataStart, columns, props, stride }
+ *   { type: 'las'|'laz', encoding: 'binary', version, pointFormat, count, dataStart, stride, scale, offset }
  * Kaster Error med engelsk melding for formater som ikke støttes.
  */
 export function parseHeader(text) {
+  // LAS starter alltid med signaturen "LASF" (binær header)
+  if (text.startsWith('LASF')) return parseLasHeader(text);
+
   // PLY starter alltid med magisk linje "ply"
   if (/^ply[ \t]*\r?\n/.test(text)) return parsePlyHeader(text);
 
@@ -257,6 +263,89 @@ function parsePcdHeader(text) {
   return { type: 'pcd', encoding: data, count, dataStart, columns, props, stride };
 }
 
+// --- LAS (issue #15) ---
+
+// Minste postlengde (bytes) per punktformat 0–10 (ASPRS LAS 1.4 R15)
+const LAS_MIN_RECORD_LENGTH = [20, 28, 26, 34, 57, 63, 30, 36, 38, 59, 67];
+// Minste headerlengde: alle felt til og med min Z (LAS 1.0–1.2)
+const LAS_MIN_HEADER_SIZE = 227;
+// LAS 1.4-header (med 64-bits antall punkter fra offset 247)
+const LAS14_HEADER_SIZE = 375;
+// Punktformater laz-perf kan dekomprimere (ikke waveform-formatene 4, 5, 9 og 10)
+const LAZ_POINT_FORMATS = [0, 1, 2, 3, 6, 7, 8];
+// laz-perf er bygget med maks 2 GB WASM-minne; den komprimerte filen må få plass der
+export const LAZ_MAX_FILE_BYTES = 1.8 * 1024 * 1024 * 1024;
+
+/**
+ * Tolker public header block i en LAS-fil. `text` er bytes gjort om med
+ * bytesToString (ett tegn per byte), så headeren kan leses med en DataView.
+ *
+ * X/Y/Z ligger som int32 først i hver post i alle punktformater (0–10).
+ * Absolutt koordinat = heltall × skala + offset (regnes i double i readBinaryRows).
+ * `stride` er postlengden fra headeren, siden ekstra bytes kan gjøre posten lengre
+ * enn standarden.
+ */
+function parseLasHeader(text) {
+  const n = Math.min(text.length, LAS14_HEADER_SIZE);
+  if (n < LAS_MIN_HEADER_SIZE) {
+    throw new Error(`LAS header is truncated: ${n} bytes, expected at least ${LAS_MIN_HEADER_SIZE}`);
+  }
+  const bytes = new Uint8Array(n);
+  for (let i = 0; i < n; i++) bytes[i] = text.charCodeAt(i);
+  const dv = new DataView(bytes.buffer);
+
+  const major = dv.getUint8(24);
+  const minor = dv.getUint8(25);
+  if (major !== 1 || minor > 4) throw new Error(`Unsupported LAS version ${major}.${minor}`);
+
+  const headerSize = dv.getUint16(94, true);
+  const dataStart = dv.getUint32(96, true);
+  const formatByte = dv.getUint8(104);
+  const stride = dv.getUint16(105, true);
+
+  // LASzip setter bit 7 (og ev. 6) i punktformatet for komprimerte filer (LAZ)
+  const compressed = (formatByte & 0xC0) !== 0;
+  const pointFormat = formatByte & 0x3F;
+  if (pointFormat >= LAS_MIN_RECORD_LENGTH.length) {
+    throw new Error(`Unsupported LAS point data format: ${pointFormat}`);
+  }
+  if (compressed && !LAZ_POINT_FORMATS.includes(pointFormat)) {
+    throw new Error(`LAZ with point format ${pointFormat} (waveform) is not supported. Convert the file to LAS.`);
+  }
+  if (stride < LAS_MIN_RECORD_LENGTH[pointFormat]) {
+    throw new Error(`Invalid LAS header: point record length ${stride} is too short for point format ${pointFormat} (minimum ${LAS_MIN_RECORD_LENGTH[pointFormat]})`);
+  }
+  if (headerSize < LAS_MIN_HEADER_SIZE || dataStart < headerSize) {
+    throw new Error(`Invalid LAS header: header size ${headerSize}, offset to point data ${dataStart}`);
+  }
+
+  // Antall punkter: legacy-feltet (uint32) for LAS 1.0–1.3. LAS 1.4 har et 64-bits
+  // felt; legacy-feltet er da 0 for punktformat 6–10 og for over 2^32 - 1 punkter.
+  let count = dv.getUint32(107, true);
+  if (minor >= 4 && headerSize >= LAS14_HEADER_SIZE && n >= LAS14_HEADER_SIZE) {
+    const count64 = Number(dv.getBigUint64(247, true));
+    if (count64 > 0) count = count64;
+  }
+
+  const scale = [dv.getFloat64(131, true), dv.getFloat64(139, true), dv.getFloat64(147, true)];
+  const offset = [dv.getFloat64(155, true), dv.getFloat64(163, true), dv.getFloat64(171, true)];
+  if (!scale.every((s) => Number.isFinite(s) && s !== 0) || !offset.every(Number.isFinite)) {
+    throw new Error('Invalid LAS header: scale factors must be non-zero and offsets finite');
+  }
+
+  return {
+    type: compressed ? 'laz' : 'las',
+    encoding: 'binary',
+    version: `${major}.${minor}`,
+    pointFormat,
+    count,
+    dataStart,
+    stride,
+    scale,
+    offset
+  };
+}
+
 // --- Innlesing av fil ---
 
 /**
@@ -269,6 +358,9 @@ function parsePcdHeader(text) {
 export async function readPointFile(file) {
   const probe = new Uint8Array(await file.slice(0, HEADER_PROBE_BYTES).arrayBuffer());
   const header = parseHeader(bytesToString(probe));
+  if (header.type === 'laz' && file.size > LAZ_MAX_FILE_BYTES) {
+    throw new Error(`LAZ file is too large (${(file.size / 1024 ** 3).toFixed(2)} GB). Maximum is ${(LAZ_MAX_FILE_BYTES / 1024 ** 3).toFixed(1)} GB; decompress it to LAS or split it.`);
+  }
   return { file, header };
 }
 
@@ -284,9 +376,11 @@ export async function readPointFile(file) {
  * @param {(fraction: number) => void} [options.onProgress] - Andel av filen lest (0–1)
  * @param {number} [options.chunkChars] - Bitstørrelse for tekst (tegn), default TEXT_BATCH_CHARS
  * @param {number} [options.windowBytes] - Vindusstørrelse for binære filer, default BINARY_WINDOW_BYTES
+ * @param {() => Promise<Object>} [options.createLazPerf] - Lager en laz-perf-instans (LAZ), se parseLazFile
  * @returns {Promise<Object>}
  */
 export async function parsePointFile({ header, file, text, buffer }, options = {}) {
+  if (header.type === 'laz') return parseLazFile(file || new Blob([buffer]), header, options);
   if (text !== undefined) {
     return header.type === 'none' ? parseXYZFile(text) : parseAsciiBody(text, header);
   }
@@ -527,6 +621,17 @@ export function parseAsciiBody(text, header) {
  */
 function readBinaryRows(dv, pos, n, header, builder) {
   const { stride } = header;
+
+  // LAS: int32 X/Y/Z først i posten, heltall × skala + offset regnes i double
+  if (header.type === 'las') {
+    const [sx, sy, sz] = header.scale;
+    const [ox, oy, oz] = header.offset;
+    for (let i = 0, o = pos; i < n; i++, o += stride) {
+      builder.add(dv.getInt32(o, true) * sx + ox, dv.getInt32(o + 4, true) * sy + oy, dv.getInt32(o + 8, true) * sz + oz);
+    }
+    return;
+  }
+
   const [px, py, pz] = header.props;
 
   // Spesialisert løkke for de vanligste tilfellene (alle float eller alle double)
@@ -551,7 +656,7 @@ function truncatedError(count, needed, size) {
 }
 
 /**
- * Leser punktene i binær little-endian PLY eller binær PCD fra én ArrayBuffer.
+ * Leser punktene i binær little-endian PLY, binær PCD eller LAS fra én ArrayBuffer.
  * @param {ArrayBuffer} buffer - Hele filen
  * @param {Object} header - Fra parseHeader (dataStart er byte-offset)
  */
@@ -576,7 +681,7 @@ export function parseBinaryBody(buffer, header) {
 }
 
 /**
- * Leser punktene i binær PLY/PCD fra en fil i vinduer (file.slice), så hele filen
+ * Leser punktene i binær PLY/PCD eller LAS fra en fil i vinduer (file.slice), så hele filen
  * aldri ligger i én ArrayBuffer. Minne: ett vindu + posisjonene.
  * @param {Blob} file
  * @param {Object} header - Fra parseHeader (dataStart er byte-offset)
@@ -654,4 +759,84 @@ async function skipBinaryElementInFile(file, pos, element, windowBytes) {
     }
   }
   return pos;
+}
+
+// --- LAZ (issue #15, del 2) ---
+
+// Andel av fremdriften som går til å kopiere filen inn i WASM-minnet (resten er dekoding)
+const LAZ_READ_SHARE = 0.1;
+
+/**
+ * Laster laz-perf (WebAssembly) først når en LAZ-fil åpnes, så hovedbundlen ikke
+ * blir større. lazPerfLoader.js bruker Vite sin ?url-import for WASM-filen; i Node
+ * (tester) sendes en egen fabrikk inn med options.createLazPerf.
+ */
+async function loadLazPerf() {
+  const { default: create } = await import('./lazPerfLoader.js');
+  return create();
+}
+
+/**
+ * Leser en LAZ-fil (komprimert LAS) med laz-perf.
+ *
+ * laz-perf (LASZip.open) trenger hele den KOMPRIMERTE filen i WASM-minnet: chunk-
+ * tabellen som sier hvor hver chunk starter, er selv aritmetisk kodet. Filen kopieres
+ * derfor inn i vinduer med file.slice() (aldri hele filen i én JS-streng/ArrayBuffer),
+ * og punktene dekodes ett og ett. Minne: komprimert fil (typisk 10–15 % av LAS) +
+ * posisjonene. En ny WASM-instans per fil, så minnet frigjøres etterpå.
+ *
+ * Koordinater: int32 × skala + offset i double, som for LAS (readBinaryRows).
+ * @param {Blob} file
+ * @param {Object} header - Fra parseHeader (type 'laz')
+ */
+export async function parseLazFile(file, header, { onProgress, windowBytes = BINARY_WINDOW_BYTES, createLazPerf = loadLazPerf } = {}) {
+  if (header.dataStart > file.size) throw truncatedError(header.count, header.dataStart, file.size);
+  const report = progressReporter(1, onProgress);
+  const M = await createLazPerf();
+  const size = file.size;
+  let filePtr = 0, pointPtr = 0, laszip = null;
+
+  try {
+    filePtr = M._malloc(size);
+    if (!filePtr) throw new Error(`Not enough memory to load the LAZ file (${(size / 1024 ** 2).toFixed(0)} MB)`);
+    for (let pos = 0; pos < size; pos += windowBytes) {
+      const bytes = new Uint8Array(await file.slice(pos, pos + windowBytes).arrayBuffer());
+      M.HEAPU8.set(bytes, filePtr + pos);
+      await report(((pos + bytes.length) / size) * LAZ_READ_SHARE);
+    }
+
+    laszip = new M.LASZip();
+    try {
+      laszip.open(filePtr, size);
+    } catch (e) {
+      console.warn('laz-perf LASZip.open:', e);
+      throw new Error('Could not open the LAZ file: it is truncated, corrupt or uses an unsupported LAZ variant.');
+    }
+    const count = laszip.getCount();
+    pointPtr = M._malloc(laszip.getPointLength());
+    const [sx, sy, sz] = header.scale;
+    const [ox, oy, oz] = header.offset;
+    const builder = new PointBuilder(count);
+    let dv = new DataView(M.HEAPU8.buffer);
+
+    try {
+      for (let i = 0; i < count; i++) {
+        laszip.getPoint(pointPtr);
+        // WASM-minnet kan vokse (ny ArrayBuffer); lag DataView på nytt da
+        if (dv.buffer !== M.HEAPU8.buffer) dv = new DataView(M.HEAPU8.buffer);
+        builder.add(dv.getInt32(pointPtr, true) * sx + ox, dv.getInt32(pointPtr + 4, true) * sy + oy, dv.getInt32(pointPtr + 8, true) * sz + oz);
+        if ((i & 0xFFFF) === 0xFFFF) await report(LAZ_READ_SHARE + (1 - LAZ_READ_SHARE) * (i / count));
+      }
+    } catch (e) {
+      console.warn('laz-perf LASZip.getPoint:', e);
+      throw new Error('LAZ decompression failed: the file is truncated or corrupt.');
+    }
+    return builder.finish({ type: 'laz', encoding: 'binary' });
+  } finally {
+    // laz-perf er bygget uten C++-unntak: etter en feil kan instansen være i ugyldig
+    // tilstand, men den brukes ikke igjen (ny instans per fil)
+    if (laszip) laszip.delete();
+    if (pointPtr) M._free(pointPtr);
+    if (filePtr) M._free(filePtr);
+  }
 }

@@ -2,10 +2,13 @@
   "name": "rene-cloudstream3d",
   "private": true,
   "version": "1.0.0-rc.1",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/third-party-licenses.mjs",
     "build": "vite build",
+    "licenses": "node scripts/third-party-licenses.mjs",
     "preview": "vite preview",
     "test": "node --test"
   },
@@ -15,6 +18,7 @@
   "dependencies": {
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
+    "laz-perf": "0.0.7",
     "lil-gui": "^0.21.0",
     "three": "^0.160.0"
   }
