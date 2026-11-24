@@ -178,10 +178,10 @@ test('ASCII PLY: x/y/z står ikke først, ekstra properties, CRLF', () => {
   assertClose(absPoints(parseAsciiBody(text, h)), P);
 });
 
-test('ASCII PLY: element før vertex hoppes over', () => {
+test('ASCII PLY: element før vertex hoppes over', async () => {
   const text = 'ply\nformat ascii 1.0\nelement camera 1\nproperty float a\nproperty float b\n' +
     'element vertex 1\nproperty float x\nproperty float y\nproperty float z\nend_header\n9 9\n1 2 3\n';
-  assertClose(absPoints(parsePointFile({ header: parseHeader(text), text })), [[1, 2, 3]]);
+  assertClose(absPoints(await parsePointFile({ header: parseHeader(text), text })), [[1, 2, 3]]);
 });
 
 test('ASCII PCD med FIELDS, COUNT og nan', async () => {
@@ -284,4 +284,245 @@ test('filer uten header går uendret til parseXYZFile', async () => {
   const r = await parseBytes(new TextEncoder().encode(text));
   assert.deepEqual(r.format, { delimiter: ';', decimalComma: true });
   assertClose(absPoints(r), P);
+});
+
+// --- Lesing i biter (issue #5) ---
+import { XYZChunkParser } from '../src/parser.js';
+import { AsciiBodyParser, parseBinaryFile } from '../src/pointFormats.js';
+
+/** Resultatet som sammenlignbart objekt (positions/colors som vanlige arrays). */
+function snapshot(r) {
+  return {
+    count: r.count,
+    positions: Array.from(r.positions),
+    colors: Array.from(r.colors),
+    bounds: r.bounds,
+    origin: r.origin,
+    format: r.format
+  };
+}
+
+/** Parser `text` delt i bitene `pieces` med en ny parser fra `make()`. */
+function parsePieces(make, pieces) {
+  const p = make();
+  for (const piece of pieces) p.push(piece);
+  return p.finish();
+}
+
+/** Deler text i biter ved posisjonene i `cuts` (sortert). */
+function cutAt(text, cuts) {
+  const pieces = [];
+  let prev = 0;
+  for (const c of cuts) { pieces.push(text.slice(prev, c)); prev = c; }
+  pieces.push(text.slice(prev));
+  return pieces;
+}
+
+/**
+ * Sjekker at parsing i biter gir identisk resultat som hele strengen:
+ * alle delinger i 2 biter (hver mulig posisjon), alle delinger i 3 biter for korte
+ * tekster (ellers et utvalg), faste bitstørrelser 1–64 tegn og tilfeldige delinger.
+ */
+function assertChunkInvariant(make, text, expected) {
+  const want = snapshot(expected);
+  const check = (pieces, label) => assert.deepEqual(snapshot(parsePieces(make, pieces)), want, label);
+
+  for (let i = 0; i <= text.length; i++) check(cutAt(text, [i]), `delt ved ${i}`);
+
+  const step = text.length <= 250 ? 1 : Math.ceil(text.length / 60);
+  for (let i = 0; i <= text.length; i += step) {
+    for (let j = i; j <= text.length; j += step) check(cutAt(text, [i, j]), `delt ved ${i} og ${j}`);
+  }
+
+  for (let size = 1; size <= 64; size++) {
+    const cuts = [];
+    for (let c = size; c < text.length; c += size) cuts.push(c);
+    check(cutAt(text, cuts), `biter på ${size} tegn`);
+  }
+
+  let seed = 42;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  for (let k = 0; k < 200; k++) {
+    const cuts = Array.from({ length: 1 + Math.floor(rnd() * 8) }, () => Math.floor(rnd() * (text.length + 1)));
+    check(cutAt(text, cuts.sort((a, b) => a - b)), `tilfeldig deling ${cuts}`);
+  }
+}
+
+/** Fil uten header med > 50 datalinjer, så formatet bestemmes midt i strømmen. */
+function xyzText({ sep = ' ', comma = false, eol = '\n', lines = 60 } = {}) {
+  const out = ['X Y Z', '# kommentar'];
+  for (let i = 0; i < lines; i++) {
+    const v = [500000.123 + i * 1.5, 6000000.456 + i * 0.25, -3.75 + (i % 7) * 2.125].map((n) => n.toFixed(3));
+    out.push((comma ? v.map((s) => s.replace('.', ',')) : v).join(sep) + (i % 5 === 0 ? `${sep}255` : ''));
+    if (i === 30) out.push('', '   ', 'tekst midt i');
+  }
+  return out.join(eol) + (lines % 2 ? '' : eol); // med og uten linjeskift til slutt
+}
+
+test('XYZ i biter: identisk med hele strengen (mellomrom, punktum, LF)', () => {
+  const text = xyzText();
+  const whole = parseXYZFile(text);
+  assert.equal(whole.count, 60);
+  assertChunkInvariant(() => new XYZChunkParser(), text, whole);
+});
+
+test('XYZ i biter: CRLF delt mellom \\r og \\n, desimalkomma med semikolon', () => {
+  const text = xyzText({ sep: ';', comma: true, eol: '\r\n', lines: 61 });
+  const whole = parseXYZFile(text);
+  assert.equal(whole.count, 61);
+  assert.deepEqual(whole.format, { delimiter: ';', decimalComma: true });
+  // Eksplisitt: delt mellom \r og \n
+  const cr = text.indexOf('\r\n', 100) + 1;
+  assert.deepEqual(snapshot(parsePieces(() => new XYZChunkParser(), [text.slice(0, cr), text.slice(cr)])), snapshot(whole));
+  assertChunkInvariant(() => new XYZChunkParser(), text, whole);
+});
+
+test('XYZ i biter: desimalkomma med mellomrom og tab, komma som skilletegn', () => {
+  for (const opts of [{ sep: ' ', comma: true }, { sep: '\t', comma: true }, { sep: ',' }, { sep: ', ' }]) {
+    const text = xyzText(opts);
+    const whole = parseXYZFile(text);
+    assert.equal(whole.count, 60, JSON.stringify(opts));
+    assertChunkInvariant(() => new XYZChunkParser(), text, whole);
+  }
+});
+
+test('XYZ i biter: under 50 datalinjer og tom fil', () => {
+  for (const text of ['500000,123;6000000,456;12,5\r\n500001,5;6000002,25;-3,75', '', '\n', 'bare tekst\n']) {
+    assertChunkInvariant(() => new XYZChunkParser(), text, parseXYZFile(text));
+  }
+});
+
+test('XYZ i biter: for lavt og for høyt estimat av antall punkter gir samme resultat', () => {
+  const text = xyzText({ lines: 3000 });
+  const want = snapshot(parseXYZFile(text));
+  for (const totalSize of [10, text.length, text.length * 50]) {
+    const p = new XYZChunkParser({ totalSize });
+    let consumed = 0;
+    for (let i = 0; i < text.length; i += 997) {
+      const piece = text.slice(i, i + 997);
+      consumed += piece.length;
+      p.push(piece, consumed);
+    }
+    assert.deepEqual(snapshot(p.finish()), want, `totalSize ${totalSize}`);
+  }
+});
+
+test('ASCII PLY i biter: faces, delt i header og data', () => {
+  const whole = parseAsciiBody(PLY_ASCII_FACES, parseHeader(PLY_ASCII_FACES));
+  assert.equal(whole.count, 4);
+  assertChunkInvariant(() => new AsciiBodyParser('ply'), PLY_ASCII_FACES, whole);
+
+  // Element før vertex, CRLF, ingen linjeskift til slutt
+  const text = ['ply', 'format ascii 1.0', 'element camera 2', 'property float a', 'property float b',
+    'element vertex 3', 'property float x', 'property float y', 'property float z',
+    'element face 1', 'property list uchar int vertex_indices', 'end_header',
+    '9 9', '', '8 8', '500000.123 6000000.456 12.5', '500001.5 6000002.25 -3.75', '500002 6000001 1', '3 0 1 2'].join('\r\n');
+  const w2 = parseAsciiBody(text, parseHeader(text));
+  assertClose(absPoints(w2), [P[0], P[1], [500002, 6000001, 1]]);
+  assertChunkInvariant(() => new AsciiBodyParser('ply'), text, w2);
+});
+
+test('ASCII PCD i biter', () => {
+  const text = `# .PCD v0.7\nVERSION 0.7\nFIELDS x y z\nSIZE 4 4 4\nTYPE F F F\nCOUNT 1 1 1\nWIDTH 3\nHEIGHT 1\nPOINTS 3\nDATA ascii\n` +
+    '500000.123 6000000.456 12.5\nnan nan nan\n500001.5 6000002.25 -3.75';
+  const whole = parseAsciiBody(text, parseHeader(text));
+  assertClose(absPoints(whole), P);
+  assertChunkInvariant(() => new AsciiBodyParser('pcd'), text, whole);
+});
+
+test('ASCII PLY i biter: ufullstendig header gir feilmelding', () => {
+  const p = new AsciiBodyParser('ply');
+  p.push('ply\nformat ascii 1.0\nelement vertex 1\n');
+  p.push('property float x\n');
+  assert.throws(() => p.finish(), /end_header/);
+});
+
+/**
+ * Fil-lignende objekt der stream() gir små byte-biter (så UTF-8-tegn og linjeskift
+ * deles mellom bitene), og slice() fungerer som for Blob.
+ */
+function chunkedFile(bytes, chunkBytes) {
+  const blob = new Blob([bytes]);
+  return {
+    size: bytes.length,
+    slice: (a, b) => blob.slice(a, b),
+    stream() {
+      let pos = 0;
+      return new ReadableStream({
+        pull(controller) {
+          if (pos >= bytes.length) { controller.close(); return; }
+          controller.enqueue(bytes.slice(pos, pos + chunkBytes));
+          pos += chunkBytes;
+        }
+      });
+    }
+  };
+}
+
+async function parseFileChunked(bytes, chunkBytes, options) {
+  const file = chunkedFile(bytes, chunkBytes);
+  return parsePointFile(await readPointFile(file), options);
+}
+
+test('strømming fra fil: små byte-biter (UTF-8 delt) gir samme resultat som hele teksten', async () => {
+  const enc = new TextEncoder();
+  const cases = [
+    [enc.encode(PLY_ASCII_FACES), parseAsciiBody(PLY_ASCII_FACES, parseHeader(PLY_ASCII_FACES))],
+    [enc.encode('# æøå\n' + xyzText({ sep: ';', comma: true, eol: '\r\n' })), parseXYZFile('# æøå\n' + xyzText({ sep: ';', comma: true, eol: '\r\n' }))],
+    [enc.encode(xyzText({ lines: 2000 })), parseXYZFile(xyzText({ lines: 2000 }))]
+  ];
+  for (const [bytes, whole] of cases) {
+    for (const [chunkBytes, chunkChars] of [[1, 1], [3, 5], [7, 100], [4096, 1 << 20]]) {
+      const r = await parseFileChunked(bytes, chunkBytes, { chunkChars });
+      assert.deepEqual(snapshot(r), snapshot(whole), `byte-biter ${chunkBytes}, tegn-biter ${chunkChars}`);
+    }
+  }
+});
+
+test('strømming fra fil: lesingen stopper etter vertex-dataene i ASCII PLY', async () => {
+  // Mange face-linjer etter vertex: skal ikke leses
+  let reads = 0;
+  const text = PLY_ASCII_FACES + '3 0 1 2\n'.repeat(10000);
+  const file = chunkedFile(new TextEncoder().encode(text), 64);
+  const stream = file.stream.bind(file);
+  file.stream = () => stream().pipeThrough(new TransformStream({ transform(c, ctl) { reads++; ctl.enqueue(c); } }));
+  const r = await parsePointFile(await readPointFile(file), { chunkChars: 256 });
+  assert.equal(r.count, 4);
+  assert.ok(reads < 20, `leste ${reads} biter`);
+});
+
+test('binær fil i vinduer: identisk med hele bufferen, også med faces før vertex', async () => {
+  const rows = [];
+  for (let i = 0; i < 50; i++) rows.push([500000.1234 + i, 6000000.4567 + i * 2, -12.5 + i * 0.25, i]);
+  const bytes = binaryFile(PLY_BIN_HEADER('double').replace('vertex 2', 'vertex 50').replace('element face 1', 'element face 0'),
+    rows, ['f64', 'f64', 'f64', 'u8']);
+  const header = parseHeader(bytesToString(bytes));
+  const whole = parseBinaryBody(bytes.buffer, header);
+  for (const windowBytes of [1, 25, 50, 1000, 1 << 20]) {
+    const r = await parseBinaryFile(new Blob([bytes]), header, { windowBytes });
+    assert.deepEqual(snapshot(r), snapshot(whole), `vindu ${windowBytes}`);
+  }
+
+  // Faces (list-properties) før vertex, med vinduer som deler listene
+  const hdr = 'ply\nformat binary_little_endian 1.0\nelement face 3\nproperty list uchar int vertex_indices\nproperty uchar flag\n' +
+    'element vertex 2\nproperty float z\nproperty double x\nproperty double y\nend_header\n';
+  const head = new TextEncoder().encode(hdr);
+  const faces = [3, 4, 0];
+  const faceBytes = faces.reduce((s, n) => s + 1 + n * 4 + 1, 0);
+  const buf = new ArrayBuffer(head.length + faceBytes + 2 * 20);
+  new Uint8Array(buf).set(head);
+  const dv = new DataView(buf);
+  let o = head.length;
+  for (const n of faces) { dv.setUint8(o, n); o += 1 + n * 4 + 1; }
+  for (const p of P) { dv.setFloat32(o, p[2], true); dv.setFloat64(o + 4, p[0], true); dv.setFloat64(o + 12, p[1], true); o += 20; }
+  const h2 = parseHeader(bytesToString(new Uint8Array(buf)));
+  const w2 = parseBinaryBody(buf, h2);
+  assertClose(absPoints(w2), P);
+  for (const windowBytes of [1, 2, 5, 13, 1 << 20]) {
+    const r = await parseBinaryFile(new Blob([buf]), h2, { windowBytes });
+    assert.deepEqual(snapshot(r), snapshot(w2), `vindu ${windowBytes}`);
+  }
+
+  // Avkortet fil gir feil også ved vindusvis lesing
+  await assert.rejects(parseBinaryFile(new Blob([buf.slice(0, buf.byteLength - 1)]), h2, { windowBytes: 7 }), /truncated/);
 });

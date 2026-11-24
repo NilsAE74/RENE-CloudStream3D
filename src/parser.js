@@ -27,15 +27,23 @@ const DATA_LINE = /^[ \t]*[+-]?\.?\d/;
  * @returns {{delimiter: 'whitespace'|','|';', decimalComma: boolean}}
  */
 export function detectFormat(content, maxLines = 50) {
+  return formatFromVotes(formatVotes(content, maxLines).votes);
+}
+
+/**
+ * Stemmer per linjetype for de første `maxLines` datalinjene i content[0..end).
+ * @returns {{votes: Map<string, number>, checked: number}} checked = antall datalinjer undersøkt
+ */
+function formatVotes(content, maxLines, end = content.length) {
   const votes = new Map();
   let start = 0;
   let checked = 0;
 
-  while (checked < maxLines && start < content.length) {
-    let end = content.indexOf('\n', start);
-    if (end === -1) end = content.length;
-    const line = content.slice(start, end);
-    start = end + 1;
+  while (checked < maxLines && start < end) {
+    let lineEnd = content.indexOf('\n', start);
+    if (lineEnd === -1 || lineEnd > end) lineEnd = end;
+    const line = content.slice(start, lineEnd);
+    start = lineEnd + 1;
 
     if (!DATA_LINE.test(line)) continue;
     checked++;
@@ -53,7 +61,10 @@ export function detectFormat(content, maxLines = 50) {
     }
     votes.set(key, (votes.get(key) || 0) + 1);
   }
+  return { votes, checked };
+}
 
+function formatFromVotes(votes) {
   // Skilletegn avgjøres av flertallet. Desimalkomma velges hvis minst én linje med
   // det skilletegnet har desimalkomma: linjer med bare heltall (f.eks. "500000 6000000 12")
   // har ingen komma, men "12,5" på en annen linje må likevel ikke leses som 12.
@@ -83,91 +94,212 @@ export function buildLineRegex({ delimiter, decimalComma }) {
   return new RegExp(`^[ \\t]*${num}${sep}${num}${sep}${num}`, 'gm');
 }
 
+// --- Felles punktsamler ---
+
 /**
- * Optimalisert parser for XYZ-filer
- * Bruker TypedArrays og unngår String.split() for å spare minne.
+ * Samler punkter i en Float32Array relativt til første punkt (origin, double),
+ * oppdaterer bounds og hopper over ikke-endelige punkter (NaN i organiserte PCD-skyer).
+ * Brukes av alle parsere. Kan fylles i flere omganger (biter), og avsluttes med finish().
  *
- * Presisjon: Float32 har bare ~7 gjeldende siffer, så UTM-verdier som
- * Y ≈ 6.000.000 ville blitt avrundet til 0,5 m. Derfor lagres posisjonene
- * RELATIVT til første punkt (origin), som holdes i full presisjon (double).
- * Absolutt koordinat = positions[i] + origin. Bounds er i absolutte koordinater.
+ * Presisjon: Float32 har bare ~7 gjeldende siffer, så UTM-verdier som Y ≈ 6.000.000
+ * ville blitt avrundet til 0,5 m. Differansen til første punkt regnes derfor i double
+ * FØR lagring. Absolutt koordinat = positions[i] + origin.
+ */
+export class PointBuilder {
+  /** @param {number} capacity - Antall punkter det allokeres plass til (kan økes med reserve) */
+  constructor(capacity = 1024) {
+    this.positions = new Float32Array(Math.max(capacity, 1) * 3);
+    this.pIndex = 0;
+    this.skipped = 0;
+    this.hasOrigin = false;
+    this.ox = 0; this.oy = 0; this.oz = 0;
+    this.minX = Infinity; this.maxX = -Infinity;
+    this.minY = Infinity; this.maxY = -Infinity;
+    this.minZ = Infinity; this.maxZ = -Infinity;
+  }
+
+  /** Antall punkter det er plass til uten ny allokering */
+  get capacity() {
+    return this.positions.length / 3;
+  }
+
+  /**
+   * Sørger for plass til minst `points` punkter totalt. Ny allokering kopierer de
+   * eksisterende punktene: minnetoppen er da gammel + ny array.
+   */
+  reserve(points) {
+    if (points * 3 <= this.positions.length) return;
+    const grown = new Float32Array(Math.ceil(points) * 3);
+    grown.set(this.positions.subarray(0, this.pIndex));
+    this.positions = grown;
+  }
+
+  add(x, y, z) {
+    if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z))) {
+      this.skipped++;
+      return;
+    }
+    if (!this.hasOrigin) {
+      this.ox = x; this.oy = y; this.oz = z;
+      this.hasOrigin = true;
+    }
+    let p = this.positions;
+    const i = this.pIndex;
+    if (i + 3 > p.length) {
+      const grown = new Float32Array(p.length * 2);
+      grown.set(p);
+      this.positions = p = grown;
+    }
+    p[i] = x - this.ox;
+    p[i + 1] = y - this.oy;
+    p[i + 2] = z - this.oz;
+    this.pIndex = i + 3;
+
+    if (x < this.minX) this.minX = x;
+    if (x > this.maxX) this.maxX = x;
+    if (y < this.minY) this.minY = y;
+    if (y > this.maxY) this.maxY = y;
+    if (z < this.minZ) this.minZ = z;
+    if (z > this.maxZ) this.maxZ = z;
+  }
+
+  finish(format) {
+    if (this.skipped > 0) console.log(`Skipped ${this.skipped} points with NaN/Inf coordinates`);
+    return finishPoints(
+      this.positions, this.pIndex,
+      { x: this.ox, y: this.oy, z: this.oz },
+      { minX: this.minX, maxX: this.maxX, minY: this.minY, maxY: this.maxY, minZ: this.minZ, maxZ: this.maxZ },
+      format
+    );
+  }
+}
+
+// --- Filer uten header (.xyz/.txt/.csv), i biter (issue #5) ---
+
+// Antall datalinjer detectFormat undersøker. Bit-parseren venter til så mange
+// komplette datalinjer er lest, slik at formatet blir det samme som for hele filen.
+const FORMAT_LINES = 50;
+// ... men venter ikke lenger enn hit (tegn) hvis filen har få datalinjer i starten
+const FORMAT_MAX_BUFFER = 1 << 20;
+// Margin på estimert antall punkter ved forhåndsallokering
+const ESTIMATE_MARGIN = 1.03;
+
+/** Antall '\n' i text[0..end) */
+function countNewlines(text, end) {
+  let n = 0;
+  for (let i = text.indexOf('\n'); i !== -1 && i < end; i = text.indexOf('\n', i + 1)) n++;
+  return n;
+}
+
+/**
+ * Parser for filer uten header som tar imot teksten i biter (push), f.eks. fra en
+ * strøm. Leser de tre FØRSTE tallene på hver linje (X Y Z), se buildLineRegex.
+ * Ekstra kolonner ignoreres, og linjer som ikke starter med tre tall hoppes over.
+ *
+ * Biter kan deles hvor som helst (midt i et tall, mellom \r og \n): bare komplette
+ * linjer (til og med siste '\n') parses, resten tas vare på til neste bit. Resultatet
+ * er identisk med å parse hele teksten på én gang.
+ *
+ * Minne: positions forhåndsallokeres. Med `totalSize` (filstørrelse i byte) estimeres
+ * antall punkter fra linjetettheten i det som er lest så langt (+3 %), så det normalt
+ * blir én allokering. Bommer estimatet, allokeres et nytt estimat (gammel + ny array
+ * i minnet samtidig under kopieringen, maks ca. 2× posisjonene).
+ */
+export class XYZChunkParser {
+  /**
+   * @param {Object} [options]
+   * @param {number} [options.totalSize] - Total størrelse (byte) for estimat av antall punkter
+   */
+  constructor({ totalSize = 0 } = {}) {
+    this.totalSize = totalSize;
+    this.pending = '';
+    this.format = null;
+    this.lineRegex = null;
+    this.builder = new PointBuilder(1);
+    this.linesSeen = 0;
+  }
+
+  /**
+   * Tar imot neste bit av teksten.
+   * @param {string} chunk
+   * @param {number} [consumed] - Antall byte av filen lest så langt (inkl. denne biten), for estimatet
+   */
+  push(chunk, consumed = 0) {
+    const text = this.pending ? this.pending + chunk : chunk;
+    const end = text.lastIndexOf('\n') + 1; // Starten av den ufullstendige siste linjen
+    if (end === 0) {
+      this.pending = text;
+      return;
+    }
+    if (!this.format) {
+      // Vent til de første datalinjene er komplette, så formatet blir som for hele filen
+      if (formatVotes(text, FORMAT_LINES, end).checked < FORMAT_LINES && end < FORMAT_MAX_BUFFER) {
+        this.pending = text;
+        return;
+      }
+      this._setFormat(detectFormat(text.slice(0, end)));
+    }
+    this._parse(text, end, consumed);
+    this.pending = end < text.length ? text.slice(end) : '';
+  }
+
+  /** Parser det som er igjen (siste linje uten '\n') og returnerer resultatet. */
+  finish() {
+    const text = this.pending;
+    this.pending = '';
+    if (!this.format) this._setFormat(detectFormat(text));
+    if (text.length > 0) this._parse(text, text.length, 0, true);
+    return this.builder.finish(this.format);
+  }
+
+  _setFormat(format) {
+    this.format = format;
+    this.lineRegex = buildLineRegex(format);
+    console.log(`Format: delimiter=${format.delimiter}, decimal=${format.decimalComma ? 'comma' : 'dot'}`);
+  }
+
+  /** Parser linjene i text[0..end). end er rett etter en '\n', eller text.length for siste bit. */
+  _parse(text, end, consumed, final = false) {
+    const builder = this.builder;
+
+    // Plass til minst én ny linje per '\n' (pluss siste linje uten linjeskift)
+    const lines = countNewlines(text, end) + (final ? 1 : 0);
+    this.linesSeen += lines;
+    const needed = builder.pIndex / 3 + lines;
+    if (needed > builder.capacity) {
+      let target = needed;
+      if (this.totalSize > 0 && consumed > 0) {
+        target = Math.max(needed, Math.ceil(this.linesSeen * (this.totalSize / consumed) * ESTIMATE_MARGIN));
+      }
+      builder.reserve(target);
+    }
+
+    // regex.exec() gir neste match uten å lage en stor array. En match går aldri over
+    // et linjeskift, så alle matcher som starter før `end` ligger på komplette linjer.
+    const re = this.lineRegex;
+    const decimalComma = this.format.decimalComma;
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text)) !== null && m.index < end) {
+      const x = parseFloat(decimalComma ? m[1].replace(',', '.') : m[1]);
+      const y = parseFloat(decimalComma ? m[2].replace(',', '.') : m[2]);
+      const z = parseFloat(decimalComma ? m[3].replace(',', '.') : m[3]);
+      builder.add(x, y, z);
+    }
+  }
+}
+
+/**
+ * Parser en hel fil uten header gitt som én streng (tester, små filer).
+ * Bruker samme bit-parser som strømmingen, med hele teksten som én bit.
+ *
+ * Posisjonene lagres RELATIVT til første punkt (origin, double), se PointBuilder.
+ * Bounds er i absolutte koordinater.
  */
 export function parseXYZFile(content) {
-
-  // 1. Tell linjer for å pre-allokere riktig størrelse (ett punkt per linje).
-  // indexOf er rask, og dette unngår både overallokering og resizing.
-  let lineCount = 1;
-  for (let idx = content.indexOf('\n'); idx !== -1; idx = content.indexOf('\n', idx + 1)) {
-    lineCount++;
-  }
-
-  // Alloker TypedArray (mye raskere enn vanlige arrays).
-  // Farger allokeres først etter parsing, når antall punkter er kjent.
-  let positions = new Float32Array(lineCount * 3);
-
-  let pIndex = 0; // Peker til hvor vi er i positions-arrayet
-  let minX = Infinity, maxX = -Infinity;
-  let minY = Infinity, maxY = -Infinity;
-  let minZ = Infinity, maxZ = -Infinity;
-
-  // Finn skilletegn/desimaltegn fra starten av filen og lag regex for de tre
-  // FØRSTE tallene på hver linje (X Y Z). Ekstra kolonner (intensitet, RGB, ...)
-  // ignoreres, og linjer som ikke starter med tre tall (headere, kommentarer,
-  // PCD/PLY-header) hoppes over. V8 sin regex-motor er raskere enn manuell parsing.
-  const format = detectFormat(content);
-  const lineRegex = buildLineRegex(format);
-  const decimalComma = format.decimalComma;
-  console.log(`Format: delimiter=${format.delimiter}, decimal=${decimalComma ? 'comma' : 'dot'}`);
-
-  let match;
-
-  // Lokalt origo (første punkt), lagret i full presisjon
-  let originX = 0, originY = 0, originZ = 0;
-  let hasOrigin = false;
-
-  // --- PASS 1: Parse tekst til tall ---
-  // Vi kjører regex i en løkke. exec() returnerer neste match uten å lage en gigantisk array.
-  while ((match = lineRegex.exec(content)) !== null) {
-    const x = parseFloat(decimalComma ? match[1].replace(',', '.') : match[1]);
-    const y = parseFloat(decimalComma ? match[2].replace(',', '.') : match[2]);
-    const z = parseFloat(decimalComma ? match[3].replace(',', '.') : match[3]);
-
-    if (!hasOrigin) {
-      originX = x;
-      originY = y;
-      originZ = z;
-      hasOrigin = true;
-    }
-
-    // Utvid array hvis estimatet var for lavt
-    if (pIndex + 3 > positions.length) {
-      const newPos = new Float32Array(Math.max(positions.length * 2, 3));
-      newPos.set(positions);
-      positions = newPos;
-    }
-
-    // Lagre relativt til origo (differansen regnes i double før lagring i Float32)
-    positions[pIndex] = x - originX;
-    positions[pIndex + 1] = y - originY;
-    positions[pIndex + 2] = z - originZ;
-
-    // Oppdater bounds "inline" for å unngå en ekstra loop
-    if (x < minX) minX = x;
-    if (x > maxX) maxX = x;
-    if (y < minY) minY = y;
-    if (y > maxY) maxY = y;
-    if (z < minZ) minZ = z;
-    if (z > maxZ) maxZ = z;
-
-    pIndex += 3;
-  }
-
-  return finishPoints(
-    positions, pIndex,
-    { x: originX, y: originY, z: originZ },
-    { minX, maxX, minY, maxY, minZ, maxZ },
-    format // { delimiter, decimalComma }
-  );
+  const parser = new XYZChunkParser();
+  parser.push(content);
+  return parser.finish();
 }
 
 /**
@@ -182,9 +314,11 @@ export function finishPoints(positions, pIndex, origin, bounds, format) {
   const count = pIndex / 3;
 
   // Trim ned til faktisk størrelse. Arrayet brukes direkte i geometrien (ingen kopi),
-  // så kopier bare hvis mye plass er ubrukt; ellers holder det med et view (<1 % ekstra).
+  // så kopier bare hvis mye plass er ubrukt; ellers holder det med et view (<5 % ekstra).
+  // 5 % dekker marginen på estimatet ved strømming (XYZChunkParser), slik at den vanlige
+  // situasjonen ikke gir en ekstra kopi (minnetopp 2× posisjonene) helt til slutt.
   if (pIndex < positions.length) {
-    positions = (positions.length - pIndex > positions.length * 0.01)
+    positions = (positions.length - pIndex > positions.length * 0.05)
       ? positions.slice(0, pIndex)
       : positions.subarray(0, pIndex);
   }

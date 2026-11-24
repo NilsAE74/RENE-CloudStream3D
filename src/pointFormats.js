@@ -1,20 +1,34 @@
 /**
- * PLY- og PCD-støtte (issue #8).
+ * PLY- og PCD-støtte (issue #8) og innlesing av filer i biter (issue #5).
  *
- * Todelt oppbygning, slik at den kan gjenbrukes ved strømming i biter (#5):
+ * Todelt oppbygning:
  *   1. parseHeader(text)  – tolker bare headeren og beskriver dataene
  *                           (type, encoding, antall punkter, kolonner/offsets, dataStart).
- *   2. parseAsciiBody / parseBinaryBody – leser selve dataene ut fra header-beskrivelsen
+ *   2. AsciiBodyParser / readBinaryRows – leser selve dataene ut fra header-beskrivelsen
  *      og fyller en PointBuilder.
+ *
+ * Innlesing i nettleseren (readPointFile + parsePointFile) leser aldri hele filen til
+ * én streng eller én ArrayBuffer (Chrome/Edge tillater maks ca. 512 MB per streng):
+ *   - Tekst (.xyz/.txt/.csv, ASCII PLY/PCD): file.stream() dekodes med TextDecoder
+ *     (stream: true) og parses bit for bit (XYZChunkParser / AsciiBodyParser).
+ *   - Binær PLY/PCD: leses i vinduer på BINARY_WINDOW_BYTES med file.slice().
  *
  * Presisjon: som i parseXYZFile lagres posisjonene relativt til første punkt (origin,
  * double). Differansen regnes i double før lagring i Float32Array. three sine
  * PLYLoader/PCDLoader brukes IKKE, siden de lagrer absolutte verdier i Float32Array.
  */
-import { finishPoints, parseXYZFile } from './parser.js';
+import { PointBuilder, XYZChunkParser, parseXYZFile } from './parser.js';
+
+export { PointBuilder };
 
 // Hvor mye av starten av filen som leses for å finne headeren
 export const HEADER_PROBE_BYTES = 64 * 1024;
+// Tekst samles til biter på minst så mange tegn før parsing (færre, større regex-kjøringer)
+export const TEXT_BATCH_CHARS = 4 * 1024 * 1024;
+// Størrelse på hvert vindu (file.slice) ved lesing av binære filer
+export const BINARY_WINDOW_BYTES = 16 * 1024 * 1024;
+// Hvor ofte (ms) innlesingen gir nettleseren tid til å tegne (fremdrift, animasjon)
+const YIELD_INTERVAL_MS = 100;
 
 // --- Datatyper ---
 
@@ -56,65 +70,6 @@ function readValue(dv, offset, kind) {
     case 'i64': return Number(dv.getBigInt64(offset, true));
     case 'u64': return Number(dv.getBigUint64(offset, true));
     default: throw new Error(`Unknown data type: ${kind}`);
-  }
-}
-
-// --- Felles punktsamler ---
-
-/**
- * Samler punkter i en Float32Array relativt til første punkt (origin, double),
- * oppdaterer bounds og hopper over ikke-endelige punkter (NaN i organiserte PCD-skyer).
- * Kan fylles i flere omganger (biter), og avsluttes med finish().
- */
-export class PointBuilder {
-  constructor(capacity = 1024) {
-    this.positions = new Float32Array(Math.max(capacity, 1) * 3);
-    this.pIndex = 0;
-    this.skipped = 0;
-    this.hasOrigin = false;
-    this.ox = 0; this.oy = 0; this.oz = 0;
-    this.minX = Infinity; this.maxX = -Infinity;
-    this.minY = Infinity; this.maxY = -Infinity;
-    this.minZ = Infinity; this.maxZ = -Infinity;
-  }
-
-  add(x, y, z) {
-    if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z))) {
-      this.skipped++;
-      return;
-    }
-    if (!this.hasOrigin) {
-      this.ox = x; this.oy = y; this.oz = z;
-      this.hasOrigin = true;
-    }
-    let p = this.positions;
-    const i = this.pIndex;
-    if (i + 3 > p.length) {
-      const grown = new Float32Array(p.length * 2);
-      grown.set(p);
-      this.positions = p = grown;
-    }
-    p[i] = x - this.ox;
-    p[i + 1] = y - this.oy;
-    p[i + 2] = z - this.oz;
-    this.pIndex = i + 3;
-
-    if (x < this.minX) this.minX = x;
-    if (x > this.maxX) this.maxX = x;
-    if (y < this.minY) this.minY = y;
-    if (y > this.maxY) this.maxY = y;
-    if (z < this.minZ) this.minZ = z;
-    if (z > this.maxZ) this.maxZ = z;
-  }
-
-  finish(format) {
-    if (this.skipped > 0) console.log(`Skipped ${this.skipped} points with NaN/Inf coordinates`);
-    return finishPoints(
-      this.positions, this.pIndex,
-      { x: this.ox, y: this.oy, z: this.oz },
-      { minX: this.minX, maxX: this.maxX, minY: this.minY, maxY: this.maxY, minZ: this.minZ, maxZ: this.maxZ },
-      format
-    );
   }
 }
 
@@ -305,51 +260,119 @@ function parsePcdHeader(text) {
 // --- Innlesing av fil ---
 
 /**
- * Leser en fil i nettleseren: først de første 64 KB for å finne headeren, deretter
- * hele filen ÉN gang, som ArrayBuffer (binær PLY/PCD) eller tekst (alt annet).
- * Kaster Error (engelsk melding) for formater som ikke støttes, før hele filen leses.
+ * Leser headeren fra de første 64 KB av en fil i nettleseren. Selve dataene leses
+ * først av parsePointFile, i biter. Kaster Error (engelsk melding) for formater som
+ * ikke støttes, før noe annet leses (og før eksplosjonsanimasjonen).
  * @param {File|Blob} file
- * @returns {Promise<{header: Object, text?: string, buffer?: ArrayBuffer}>}
+ * @returns {Promise<{file: File|Blob, header: Object}>}
  */
 export async function readPointFile(file) {
   const probe = new Uint8Array(await file.slice(0, HEADER_PROBE_BYTES).arrayBuffer());
   const header = parseHeader(bytesToString(probe));
-  if (header.encoding === 'binary') {
-    return { header, buffer: await file.arrayBuffer() };
-  }
-  return { header, text: await file.text() };
+  return { file, header };
 }
 
 /**
- * Parser data fra readPointFile. Returnerer samme struktur som parseXYZFile.
- * Filer uten PLY/PCD-header går uendret til parseXYZFile.
+ * Parser punktene. Returnerer samme struktur som parseXYZFile.
+ *
+ * Med `file` (fra readPointFile) leses filen i biter, se toppen av filen. `text`
+ * (hele filen som streng) og `buffer` (hele filen som ArrayBuffer) støttes også,
+ * for tester og små filer.
+ *
+ * @param {{header: Object, file?: Blob, text?: string, buffer?: ArrayBuffer}} data
+ * @param {Object} [options]
+ * @param {(fraction: number) => void} [options.onProgress] - Andel av filen lest (0–1)
+ * @param {number} [options.chunkChars] - Bitstørrelse for tekst (tegn), default TEXT_BATCH_CHARS
+ * @param {number} [options.windowBytes] - Vindusstørrelse for binære filer, default BINARY_WINDOW_BYTES
+ * @returns {Promise<Object>}
  */
-export function parsePointFile({ header, text, buffer }) {
-  if (header.type === 'none') return parseXYZFile(text);
-  if (header.encoding === 'binary') return parseBinaryBody(buffer, header);
-  // ASCII: tolk headeren på nytt i den dekodede teksten, så dataStart er en
-  // tegn-offset (UTF-8-tegn i kommentarer gjør byte- og tegn-offset ulike)
-  return parseAsciiBody(text, parseHeader(text));
+export async function parsePointFile({ header, file, text, buffer }, options = {}) {
+  if (text !== undefined) {
+    return header.type === 'none' ? parseXYZFile(text) : parseAsciiBody(text, header);
+  }
+  if (buffer !== undefined) return parseBinaryBody(buffer, header);
+  if (header.encoding === 'binary') return parseBinaryFile(file, header, options);
+
+  const parser = header.type === 'none'
+    ? new XYZChunkParser({ totalSize: file.size })
+    : new AsciiBodyParser(header.type, file.size);
+  await streamText(file, parser, options);
+  return parser.finish();
+}
+
+/** Gir nettleseren tid til å tegne (fremdrift i spinneren, render-løkken). */
+function yieldToBrowser() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/**
+ * Lager en funksjon som melder fremdrift og gir fra seg kontrollen maks hvert
+ * YIELD_INTERVAL_MS. Kalles etter hver bit; venter bare når intervallet er gått.
+ */
+function progressReporter(total, onProgress) {
+  let last = performance.now();
+  return async (loaded) => {
+    const now = performance.now();
+    if (now - last < YIELD_INTERVAL_MS) return;
+    if (onProgress) onProgress(total > 0 ? Math.min(loaded / total, 1) : 0);
+    await yieldToBrowser();
+    last = performance.now();
+  };
+}
+
+/**
+ * Leser en tekstfil med file.stream() og sender den dekodet (UTF-8) til
+ * parser.push(text, bytesRead) i biter på minst `chunkChars` tegn.
+ * TextDecoder med { stream: true } håndterer UTF-8-tegn som deles mellom to byte-biter.
+ * Stopper lesingen tidlig når parseren melder at den er ferdig (parser.done).
+ */
+async function streamText(file, parser, { onProgress, chunkChars = TEXT_BATCH_CHARS } = {}) {
+  const reader = file.stream().getReader();
+  const decoder = new TextDecoder('utf-8');
+  const report = progressReporter(file.size, onProgress);
+  let batch = '';
+  let loaded = 0;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      loaded += value.byteLength;
+      batch += decoder.decode(value, { stream: true });
+      if (batch.length < chunkChars) continue;
+
+      parser.push(batch, loaded);
+      batch = '';
+      if (parser.done) {
+        await reader.cancel();
+        return;
+      }
+      await report(loaded);
+    }
+    batch += decoder.decode();
+    if (batch) parser.push(batch, loaded);
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 // --- ASCII-data ---
 
 /**
- * Leser `rowCount` ikke-tomme linjer fra `start`. For hver linje hentes kolonnene
- * `columns` = [xi, yi, zi] uten split() (tokenisering på mellomrom/tab).
- * Med builder = null hoppes linjene bare over.
- * @returns {number} Posisjon etter siste leste linje
+ * Leser `rowCount` ikke-tomme linjer fra `start` til `end` (default text.length).
+ * For hver linje hentes kolonnene `columns` = [xi, yi, zi] uten split()
+ * (tokenisering på mellomrom/tab). Med builder = null hoppes linjene bare over.
+ * @returns {{pos: number, rows: number}} Posisjon etter siste leste linje og antall rader lest
  */
-export function readAsciiRows(text, start, rowCount, columns, builder) {
+export function readAsciiRows(text, start, rowCount, columns, builder, end = text.length) {
   const [xi, yi, zi] = columns || [0, 1, 2];
   const maxCol = Math.max(xi, yi, zi);
-  const len = text.length;
   let pos = start;
   let rows = 0;
 
-  while (rows < rowCount && pos < len) {
+  while (rows < rowCount && pos < end) {
     let lineEnd = text.indexOf('\n', pos);
-    if (lineEnd === -1) lineEnd = len;
+    if (lineEnd === -1 || lineEnd > end) lineEnd = end;
 
     let i = pos;
     let col = 0;
@@ -378,33 +401,157 @@ export function readAsciiRows(text, start, rowCount, columns, builder) {
     rows++;
     if (builder) builder.add(x, y, z);
   }
-  return pos;
+  return { pos: Math.min(pos, end), rows };
 }
 
 /**
- * Leser punktene i en ASCII PLY/PCD. `text` er hele filen, `header` fra parseHeader(text).
- * For PLY leses bare de N vertex-linjene; andre elementer (f.eks. face-linjer) ignoreres.
+ * Parser for ASCII PLY/PCD som tar imot hele filen (inkl. header) i biter (push).
+ *
+ * Headeren tolkes på nytt i den dekodede teksten når den er komplett, så dataStart
+ * blir en tegn-offset (UTF-8-tegn i kommentarer gjør byte- og tegn-offset ulike).
+ * For PLY leses bare de N vertex-radene; elementer før vertex hoppes over, og alt
+ * etter vertex (f.eks. face-linjer) ignoreres. Da settes `done`, og resten av filen
+ * trenger ikke leses. Bare komplette linjer parses; resten tas vare på til neste bit.
  */
-export function parseAsciiBody(text, header) {
-  let pos = header.dataStart;
-
-  // PLY: hopp over elementer som står før vertex (én linje per element)
-  if (header.type === 'ply') {
-    for (let e = 0; e < header.vertexIndex; e++) {
-      pos = readAsciiRows(text, pos, header.elements[e].count, null, null);
-    }
+export class AsciiBodyParser {
+  /**
+   * @param {'ply'|'pcd'} type - Type fra header-proben (en ufullstendig header kan se ut som 'none')
+   * @param {number} [totalSize] - Størrelse på dataene, begrenser forhåndsallokeringen
+   */
+  constructor(type, totalSize = Infinity) {
+    this.type = type;
+    this.totalSize = totalSize;
+    this.pending = '';
+    this.header = null;
+    this.builder = null;
+    this.element = 0;   // Gjeldende PLY-element (vertex-elementet = header.vertexIndex)
+    this.remaining = 0; // Rader igjen i gjeldende element
+    this.done = false;
   }
 
-  // Minste mulige linje er "0 0 0\n" (6 tegn): begrenser allokeringen ved feil POINTS/vertex-antall
-  const builder = new PointBuilder(Math.min(header.count, Math.ceil((text.length - pos) / 6) + 1));
-  readAsciiRows(text, pos, header.count, header.columns, builder);
-  return builder.finish({ type: header.type, encoding: 'ascii' });
+  push(chunk) {
+    if (this.done) return;
+    const text = this.pending ? this.pending + chunk : chunk;
+    const end = text.lastIndexOf('\n') + 1;
+    this.pending = this._consume(text, end);
+  }
+
+  finish() {
+    if (!this.done) {
+      const text = this.pending;
+      this.pending = '';
+      if (!this.header) {
+        // Headeren ble ikke komplett før slutten: tolk den på hele teksten
+        // (kaster riktig feilmelding hvis den mangler end_header/DATA)
+        const header = parseHeader(text);
+        this._start(header);
+        this._consume(text, text.length, header.dataStart);
+      } else {
+        this._consume(text, text.length);
+      }
+    }
+    return this.builder.finish({ type: this.header.type, encoding: 'ascii' });
+  }
+
+  /** Parser text[0..end) og returnerer teksten som ikke er brukt (fra end). */
+  _consume(text, end, pos = 0) {
+    if (!this.header) {
+      if (end === 0) return text;
+      // Tolk bare komplette linjer. Mangler slutten på headeren, kaster parseHeader
+      // (eller gir 'none' for PCD) – da venter vi på mer tekst.
+      let header;
+      try {
+        header = parseHeader(text.slice(0, end));
+      } catch {
+        return text;
+      }
+      if (header.type !== this.type) return text;
+      this._start(header);
+      pos = header.dataStart;
+    }
+
+    const h = this.header;
+    while (!this.done && pos < end) {
+      const isVertex = h.type === 'pcd' || this.element === h.vertexIndex;
+      const r = readAsciiRows(text, pos, this.remaining,
+        isVertex ? h.columns : null, isVertex ? this.builder : null, end);
+      pos = r.pos;
+      this.remaining -= r.rows;
+      if (this.remaining === 0) this._nextElement();
+    }
+    return this.done || end >= text.length ? '' : text.slice(end);
+  }
+
+  _start(header) {
+    if (header.type === 'none' || header.encoding !== 'ascii') {
+      throw new Error('Invalid ASCII PLY/PCD header');
+    }
+    this.header = header;
+    // Minste mulige linje er "0 0 0\n" (6 tegn): begrenser allokeringen ved feil POINTS/vertex-antall
+    this.builder = new PointBuilder(Math.min(header.count, Math.ceil(this.totalSize / 6) + 1));
+    this.element = header.type === 'ply' ? 0 : -1;
+    this.remaining = header.type === 'ply' ? header.elements[0].count : header.count;
+    if (this.remaining === 0) this._nextElement();
+  }
+
+  /** Går til neste PLY-element; ferdig etter vertex-elementet (eller for PCD). */
+  _nextElement() {
+    const h = this.header;
+    if (h.type === 'pcd' || this.element >= h.vertexIndex) {
+      this.done = true;
+      return;
+    }
+    this.element++;
+    this.remaining = h.elements[this.element].count;
+    if (this.remaining === 0) this._nextElement();
+  }
+}
+
+/**
+ * Leser punktene i en ASCII PLY/PCD gitt som én streng. `text` er hele filen.
+ * Bruker samme bit-parser som strømmingen, med hele teksten som én bit.
+ * @param {string} text
+ * @param {Object} header - Fra parseHeader (avgjør bare typen; headeren tolkes på nytt i `text`)
+ */
+export function parseAsciiBody(text, header) {
+  const parser = new AsciiBodyParser(header.type, text.length);
+  parser.push(text);
+  return parser.finish();
 }
 
 // --- Binære data ---
 
 /**
- * Leser punktene i binær little-endian PLY eller binær PCD.
+ * Leser `n` binære vertex-poster fra `pos` i en DataView og legger dem i builder.
+ * Felles for hele-buffer-lesing (parseBinaryBody) og vindusvis lesing (parseBinaryFile).
+ */
+function readBinaryRows(dv, pos, n, header, builder) {
+  const { stride } = header;
+  const [px, py, pz] = header.props;
+
+  // Spesialisert løkke for de vanligste tilfellene (alle float eller alle double)
+  if (px.kind === py.kind && py.kind === pz.kind && (px.kind === 'f32' || px.kind === 'f64')) {
+    const f64 = px.kind === 'f64';
+    for (let i = 0, o = pos; i < n; i++, o += stride) {
+      if (f64) {
+        builder.add(dv.getFloat64(o + px.offset, true), dv.getFloat64(o + py.offset, true), dv.getFloat64(o + pz.offset, true));
+      } else {
+        builder.add(dv.getFloat32(o + px.offset, true), dv.getFloat32(o + py.offset, true), dv.getFloat32(o + pz.offset, true));
+      }
+    }
+  } else {
+    for (let i = 0, o = pos; i < n; i++, o += stride) {
+      builder.add(readValue(dv, o + px.offset, px.kind), readValue(dv, o + py.offset, py.kind), readValue(dv, o + pz.offset, pz.kind));
+    }
+  }
+}
+
+function truncatedError(count, needed, size) {
+  return new Error(`File is truncated: expected ${count.toLocaleString('nb-NO')} points (${needed.toLocaleString('nb-NO')} bytes), file has ${size.toLocaleString('nb-NO')} bytes`);
+}
+
+/**
+ * Leser punktene i binær little-endian PLY eller binær PCD fra én ArrayBuffer.
  * @param {ArrayBuffer} buffer - Hele filen
  * @param {Object} header - Fra parseHeader (dataStart er byte-offset)
  */
@@ -421,29 +568,44 @@ export function parseBinaryBody(buffer, header) {
 
   const { count, stride } = header;
   const needed = pos + count * stride;
-  if (needed > buffer.byteLength) {
-    throw new Error(`File is truncated: expected ${count.toLocaleString('nb-NO')} points (${needed.toLocaleString('nb-NO')} bytes), file has ${buffer.byteLength.toLocaleString('nb-NO')} bytes`);
-  }
+  if (needed > buffer.byteLength) throw truncatedError(count, needed, buffer.byteLength);
 
-  const [px, py, pz] = header.props;
   const builder = new PointBuilder(count);
+  readBinaryRows(dv, pos, count, header, builder);
+  return builder.finish({ type: header.type, encoding: 'binary' });
+}
 
-  // Spesialisert løkke for de vanligste tilfellene (alle float eller alle double)
-  if (px.kind === py.kind && py.kind === pz.kind && (px.kind === 'f32' || px.kind === 'f64')) {
-    const f64 = px.kind === 'f64';
-    for (let i = 0, o = pos; i < count; i++, o += stride) {
-      if (f64) {
-        builder.add(dv.getFloat64(o + px.offset, true), dv.getFloat64(o + py.offset, true), dv.getFloat64(o + pz.offset, true));
-      } else {
-        builder.add(dv.getFloat32(o + px.offset, true), dv.getFloat32(o + py.offset, true), dv.getFloat32(o + pz.offset, true));
-      }
-    }
-  } else {
-    for (let i = 0, o = pos; i < count; i++, o += stride) {
-      builder.add(readValue(dv, o + px.offset, px.kind), readValue(dv, o + py.offset, py.kind), readValue(dv, o + pz.offset, pz.kind));
+/**
+ * Leser punktene i binær PLY/PCD fra en fil i vinduer (file.slice), så hele filen
+ * aldri ligger i én ArrayBuffer. Minne: ett vindu + posisjonene.
+ * @param {Blob} file
+ * @param {Object} header - Fra parseHeader (dataStart er byte-offset)
+ */
+export async function parseBinaryFile(file, header, { onProgress, windowBytes = BINARY_WINDOW_BYTES } = {}) {
+  let pos = header.dataStart;
+
+  if (header.type === 'ply') {
+    for (let e = 0; e < header.vertexIndex; e++) {
+      pos = await skipBinaryElementInFile(file, pos, header.elements[e], windowBytes);
     }
   }
 
+  const { count, stride } = header;
+  const needed = pos + count * stride;
+  if (needed > file.size) throw truncatedError(count, needed, file.size);
+
+  const builder = new PointBuilder(count);
+  const rowsPerWindow = Math.max(1, Math.floor(windowBytes / stride));
+  const report = progressReporter(file.size, onProgress);
+
+  for (let done = 0; done < count;) {
+    const n = Math.min(rowsPerWindow, count - done);
+    const buf = await file.slice(pos, pos + n * stride).arrayBuffer();
+    readBinaryRows(new DataView(buf), 0, n, header, builder);
+    done += n;
+    pos += n * stride;
+    await report(pos);
+  }
   return builder.finish({ type: header.type, encoding: 'binary' });
 }
 
@@ -460,6 +622,35 @@ function skipBinaryElement(dv, pos, element) {
       } else {
         pos += p.size;
       }
+    }
+  }
+  return pos;
+}
+
+/**
+ * Som skipBinaryElement, men leser fra fil i vinduer. Uten list-properties regnes
+ * posisjonen ut direkte; med list-properties (f.eks. faces før vertex) må hver
+ * liste-lengde leses, og nytt vindu hentes når en lengde ligger utenfor gjeldende vindu.
+ */
+async function skipBinaryElementInFile(file, pos, element, windowBytes) {
+  if (!element.props.some((p) => p.list)) return skipBinaryElement(null, pos, element);
+
+  let dv = null;
+  let winStart = 0, winEnd = 0;
+  for (let i = 0; i < element.count; i++) {
+    for (const p of element.props) {
+      if (!p.list) {
+        pos += p.size;
+        continue;
+      }
+      if (pos < winStart || pos + p.countSize > winEnd) {
+        if (pos + p.countSize > file.size) throw new Error('File is truncated: PLY element before vertex data is incomplete');
+        dv = new DataView(await file.slice(pos, pos + windowBytes).arrayBuffer());
+        winStart = pos;
+        winEnd = pos + dv.byteLength;
+      }
+      const n = readValue(dv, pos - winStart, p.countKind);
+      pos += p.countSize + n * p.size;
     }
   }
   return pos;

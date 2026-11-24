@@ -269,6 +269,9 @@ loadDefaultCloud().then(() => {
 // Handle file upload
 const fileInput = document.getElementById('fileInput');
 
+// True mens en fil leses inn (fra readPointFile til punktskyen er vist eller feil)
+let isLoadingFile = false;
+
 // Function to load file (used by both file input and drag-drop)
 async function loadFile(file) {
   if (!file) {
@@ -276,12 +279,20 @@ async function loadFile(file) {
     return;
   }
 
-  // Les headeren fra starten av filen, og deretter hele filen én gang (tekst eller
-  // ArrayBuffer for binær PLY/PCD). Formater som ikke støttes gir feil her, før eksplosjonen.
+  // Bare én innlesing om gangen (parsingen er asynkron og gir fra seg kontrollen underveis)
+  if (isLoadingFile) {
+    stats.showDashboardMessage('A file is already loading. Please wait.', 'error');
+    return;
+  }
+
+  // Les bare headeren fra starten av filen. Selve dataene leses i biter av
+  // parsePointFile. Formater som ikke støttes gir feil her, før eksplosjonen.
+  isLoadingFile = true;
   let fileData;
   try {
     fileData = await readPointFile(file);
   } catch (error) {
+    isLoadingFile = false;
     console.warn('Error reading file:', error.message);
     stats.showDashboardMessage(`Error reading ${file.name}: ${error.message}`, 'error');
     return;
@@ -299,13 +310,30 @@ async function loadFile(file) {
     
     console.log('Starting file parsing...');
 
-    // Parse XYZ file (use setTimeout to allow UI to update)
-    setTimeout(() => {
+    // Parse filen i biter (use setTimeout to allow UI to update first)
+    setTimeout(async () => {
+    // Skjul forrige sky mens den nye leses: nettleseren tegner mellom bitene, og en
+    // stor sky gjør hvert bilde tregt (særlig på svake GPU-er). Vises igjen ved feil.
+    const previousCloud = viewer.getPointCloud();
+    if (previousCloud) previousCloud.visible = false;
+    const restorePreviousCloud = () => { if (previousCloud) previousCloud.visible = true; };
+
     try {
-    const { positions, colors, count, bounds, origin } = parsePointFile(fileData);
-    fileData = null; // Slipp tekst/ArrayBuffer så GC kan frigjøre minnet
+    const parseStart = performance.now();
+    const { positions, colors, count, bounds, origin } = await parsePointFile(fileData, {
+      onProgress: (fraction) => {
+        stats.showLoadingSpinner(`Parsing ${file.name}... ${Math.floor(fraction * 100)} %`);
+      }
+    });
+    fileData = null;
+    console.log(`Parsing took ${((performance.now() - parseStart) / 1000).toFixed(2)} s`);
+    stats.showLoadingSpinner(`Creating point cloud (${count.toLocaleString('nb-NO')} points)...`);
+    // La spinner-teksten tegnes før de synkrone stegene under (sentrering, statistikk)
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     if (count === 0) {
+      isLoadingFile = false;
+      restorePreviousCloud();
       stats.hideLoadingSpinner();
       stats.showDashboardMessage('No valid points found in file!', 'error');
       return;
@@ -410,6 +438,7 @@ async function loadFile(file) {
     viewer.setIsDefaultCloud(false, null);
 
     // Hide loading spinner
+    isLoadingFile = false;
     stats.hideLoadingSpinner();
 
     console.log('Point cloud created!');
@@ -422,6 +451,8 @@ async function loadFile(file) {
     updateUploadButtonVisibility();
     
     } catch (error) {
+      isLoadingFile = false;
+      restorePreviousCloud();
       stats.hideLoadingSpinner();
       console.error('Error parsing file:', error);
       console.error('Error message:', error.message);
@@ -431,6 +462,7 @@ async function loadFile(file) {
     }, 100); // Small delay to allow UI to update
 
   } catch (error) {
+    isLoadingFile = false;
     stats.hideLoadingSpinner();
     console.error('Error parsing file:', error);
     console.error('Error message:', error.message);
