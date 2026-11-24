@@ -14,16 +14,25 @@ npm run dev        # utviklingsserver, http://localhost:5173/RENE-CloudStream3D/
 npm run build      # produksjonsbygg til dist/
 npm run preview    # forhåndsvis dist/
 npm test           # parser-tester (node --test)
+npm run licenses   # lag public/THIRD_PARTY_LICENSES.txt på nytt (kjøres også som prebuild)
 ```
 
-`npm test` kjører parser-testene i `test/` (inkl. PLY/PCD/LAS, med binære testdata bygget med `DataView`; LAS/LAZ-filer laget med laspy + lazrs ligger i `test/data/`, lages på nytt med `test/data/make_las_fixtures.py`, og lesing i biter: alle delingsposisjoner må gi identisk resultat) (Node sin innebygde `node:test`; LAZ-testene bruker `laz-perf` fra `dependencies`; kjøres i deploy-workflowen før build). Det finnes ingen linter eller formatter. Verifiser endringer med `npm test`, `npm run build` og manuell test i nettleser (`npm run dev`). Nye parser-regler skal ha testtilfeller. Chunk-size-advarselen (~1 MB bundle) ved build er kjent og ufarlig.
+### Tester
+- `npm test` kjører `test/parser.test.js` med Node sin innebygde `node:test` (ingen testrammeverk). Krever `npm install` først: LAZ-testene bruker `laz-perf` fra `dependencies`, og uten `node_modules` feiler hele filen med en lite sigende melding.
+- Dekker filer uten header, PLY/PCD (binære testdata bygget med `DataView` i testen), LAS/LAZ og lesing i biter (alle delingsposisjoner må gi identisk resultat).
+- LAS/LAZ-testfilene i `test/data/` er laget med laspy + lazrs og lages på nytt med `test/data/make_las_fixtures.py`.
+- Nye parser-regler skal ha testtilfeller.
+- Det finnes ingen linter eller formatter. Verifiser endringer med `npm test`, `npm run build` og manuell test i nettleser (`npm run dev`). Chunk-size-advarselen (~1 MB bundle) ved build er kjent og ufarlig.
 
 ## Deploy
 
-- `.github/workflows/deploy.yml`: push til `main` → `npm ci` + `npm test` + `npm run build` → GitHub Pages (Node 22; Vite 7 krever Node 20.19 eller nyere). En feilende test stopper deploy. Workflowen reagerer ikke på tags; en release deployes av push til `main`.
+- `.github/workflows/deploy.yml`: push til `main` → `npm ci` + `npm test` + `npm run build` → GitHub Pages (Node 22; Vite 7 krever Node 20.19 eller nyere). En feilende test stopper deploy. Workflowen reagerer ikke på tags; en release deployes av push til `main`. Kan også startes manuelt (`workflow_dispatch`).
 - `vite.config.js` har `base: '/RENE-CloudStream3D/'`. Må matche repo-navnet, ellers svart skjerm/404 på assets i produksjon.
 - Versjon: `vite.config.js` leser `version` fra `package.json` (`__APP_VERSION__`) og setter `__APP_COMMIT__` (fra `GITHUB_SHA` i Actions, ellers `git rev-parse`; `-dirty` ved lokale endringer) og `__APP_BUILD_TIME__` via `define`. `src/version.js` lager `CloudStream3D v1.0.0-rc.1 (161da9e)` (+ ` · dev` under `npm run dev`), som vises i appen, i konsollen og i PDF-bunnteksten. Byggetidspunktet står i tooltip. Ikke importer `package.json` i klientkoden.
 - Statiske filer (logoer) ligger i `public/` og refereres med absolutt sti (`/RENElogo.png` o.l.).
+
+## Lisens
+
 - Lisens (#9): proprietær, Reinertsen New Energy AS (`LICENSE`, `"license": "UNLICENSED"` i `package.json`). `public/THIRD_PARTY_LICENSES.txt` lages av `scripts/third-party-licenses.mjs` fra `package-lock.json` (prebuild, eller `npm run licenses`) og publiseres med siden. Ved nye/endrede avhengigheter: kjør `npm run licenses` og commit filen. Pakker uten lisensfil i npm-pakken trenger teksten i `scripts/licenses/<pakkenavn>.txt` (som laz-perf), ellers feiler bygget.
 
 ## Versjoner og release
@@ -35,7 +44,9 @@ Semantisk versjonering, tilpasset en app uten API. Endringene står i `CHANGELOG
 - **minor**: ny funksjon eller nytt filformat; gamle filer gir samme resultat.
 - **patch**: feilretting som ikke endrer resultater.
 
-Feilrettinger som *endrer* tall (som presisjonsrettingen i 1.0.0-rc.1) er major, selv om de er rettinger. Under utvikling: legg endringer under `## [Unreleased]` i `CHANGELOG.md` i samme PR.
+Feilrettinger som *endrer* tall (som presisjonsrettingen i 1.0.0-rc.1) er major, selv om de er rettinger. Under utvikling: legg endringer under `## [Unreleased]` i `CHANGELOG.md` i samme PR. Nye filformater eller funksjoner skal også inn i «Funksjoner» i `README.md` (brukerrettet, norsk).
+
+Commit-meldinger skrives på norsk, i imperativ eller som kort beskrivelse, med issue-nummer når det finnes (`Støtte for LAS-filer (issue #15, del 1)`).
 
 **Rutine** (på `main`, lokalt):
 1. `git checkout main && git pull`
