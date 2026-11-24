@@ -3,6 +3,7 @@
  */
 
 import * as THREE from 'three';
+import * as colorScale from './colorScale.js';
 
 let dashboardElement;
 let currentFileName = '';
@@ -45,6 +46,9 @@ export function updateDashboard(pointCount, bounds, positions, fileName = '', zO
 
   // Calculate point resolution (average distance in flat areas)
   const resolution = calculatePointResolution(positions);
+
+  // Z decimals: 3 (mm) for spans under 1 m, otherwise 2
+  const zDec = colorScale.zDecimals(maxZ - minZ);
   
   // Create HTML for dashboard
   const html = `
@@ -69,12 +73,12 @@ export function updateDashboard(pointCount, bounds, positions, fileName = '', zO
 
     <div class="stat-row">
       <span class="stat-label">Height range (Z):</span>
-      <span class="stat-value">${minZ.toFixed(2)} → ${maxZ.toFixed(2)} m</span>
+      <span class="stat-value">${minZ.toFixed(zDec)} → ${maxZ.toFixed(zDec)} m</span>
     </div>
 
     <div class="stat-row">
       <span class="stat-label">Height span:</span>
-      <span class="stat-value">${(maxZ - minZ).toFixed(2)} m</span>
+      <span class="stat-value">${(maxZ - minZ).toFixed(zDec)} m</span>
     </div>
 
     <div class="histogram-section">
@@ -323,14 +327,10 @@ function calculatePointResolution(positions) {
 }
 
 /**
- * Calculates color based on Z-value using the same elevation gradient as the point cloud
+ * Calculates color for a Z-value using the current color scale (colorScale.js)
  */
-function getColorForZ(z, minZ, maxZ) {
-  const zRange = maxZ - minZ || 1;
-  const normalizedZ = (z - minZ) / zRange;
-  const color = new THREE.Color();
-  color.setHSL(0.6 - normalizedZ * 0.6, 1.0, 0.5); // Blue (0.6) to red (0.0)
-  return color;
+function getColorForZ(z) {
+  return colorScale.heightToColor(z, new THREE.Color());
 }
 
 /**
@@ -375,6 +375,7 @@ function createHistogramBars(histogram, minZ, maxZ) {
   const maxCount = Math.max(...histogram);
   const numBins = histogram.length;
   const binSize = (maxZ - minZ) / numBins;
+  const labelDec = colorScale.labelDecimals(maxZ - minZ);
 
   // Create bins array with proper structure
   const bins = [];
@@ -387,7 +388,7 @@ function createHistogramBars(histogram, minZ, maxZ) {
       min: binStart,
       max: binEnd,
       count: count,
-      range: `${binStart.toFixed(1)}-${binEnd.toFixed(1)}`
+      range: `${binStart.toFixed(labelDec)}-${binEnd.toFixed(labelDec)}`
     });
   }
 
@@ -399,14 +400,14 @@ function createHistogramBars(histogram, minZ, maxZ) {
     const heightPercentage = maxCount > 0 ? (bin.count / maxCount) * 100 : 0;
     const height = Math.max(heightPercentage, 1);
 
-    // Farge
-    const color = getColorForZ((bin.min + bin.max) / 2, minZ, maxZ);
-    const cssColor = colorToCSS(color);
+    // Farge (fra gjeldende fargeskala; data-z brukes når skalaen endres)
+    const midZ = (bin.min + bin.max) / 2;
+    const cssColor = colorToCSS(getColorForZ(midZ));
 
     html += `
       <div class="histogram-column">
 
-        <div class="histogram-bar" style="height: ${height}%; background-color: ${cssColor};">
+        <div class="histogram-bar" data-z="${midZ}" style="height: ${height}%; background-color: ${cssColor};">
             <span class="histogram-range-label">${bin.range}</span>
         </div>
 
@@ -417,6 +418,16 @@ function createHistogramBars(histogram, minZ, maxZ) {
   });
 
   return html;
+}
+
+/**
+ * Updates histogram bar colors after the color scale has changed
+ */
+export function refreshHistogramColors() {
+  if (!dashboardElement) return;
+  dashboardElement.querySelectorAll('.histogram-bar[data-z]').forEach(bar => {
+    bar.style.backgroundColor = colorToCSS(getColorForZ(parseFloat(bar.dataset.z)));
+  });
 }
 
 /**

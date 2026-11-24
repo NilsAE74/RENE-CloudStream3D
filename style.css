@@ -704,6 +704,22 @@ canvas {
   text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
 }
 
+.legend-span,
+.legend-mode {
+  margin-top: var(--spacing-sm);
+  text-align: center;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-main);
+}
+
+.legend-mode {
+  margin-top: 2px;
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
 
 /* =============================================================================
    COMPONENTS - HISTOGRAM

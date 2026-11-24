@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { heightToColor } from './colorScale.js';
 
 /**
  * Optimalisert parser for XYZ-filer
@@ -93,15 +94,13 @@ export function parseXYZFile(content) {
   console.log(`Parsed ${count} points. Z-Range: ${minZ} to ${maxZ}`);
 
   // --- PASS 2: Fargelegging (Lynraskt siden vi jobber med tall) ---
-  const zRange = maxZ - minZ || 1;
   const tempColor = new THREE.Color(); // Gjenbruk objektet for å spare GC
 
   for (let i = 0; i < pIndex; i += 3) {
     const z = positions[i + 2] + originZ;
-    const normalizedZ = (z - minZ) / zRange;
 
-    // Blå (0.6) til Rød (0.0)
-    tempColor.setHSL(0.6 - normalizedZ * 0.6, 1.0, 0.5);
+    // Blå (lav) til rød (høy), strukket over datasettets Z-område
+    heightToColor(z, tempColor, minZ, maxZ);
 
     colors[i] = tempColor.r;
     colors[i + 1] = tempColor.g;
@@ -236,14 +235,12 @@ export function generateDefaultCloud() {
   console.log(`📍 Høydespenn: ${(maxZ - minZ).toFixed(2)}m (${minZ.toFixed(2)} til ${maxZ.toFixed(2)}m)`);
 
   // Fargelegging i samme loop siden vi vet Z-range på forhånd (baseZ til baseZ+10)
-  const zRange = maxZ - minZ || 1;
 
   for (let i = 0; i < positions.length; i += 3) {
     const z = positions[i + 2];
-    const normalizedZ = (z - minZ) / zRange;
 
     // Fargelegg basert på Z-verdi (samme gradient som i parseXYZFile)
-    tempColor.setHSL(0.6 - normalizedZ * 0.6, 1.0, 0.5); // Blå (0.6) til rød (0.0)
+    heightToColor(z, tempColor, minZ, maxZ);
     colors.push(tempColor.r, tempColor.g, tempColor.b);
   }
 

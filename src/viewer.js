@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import * as colorScale from './colorScale.js';
 
 /**
  * PointCloudViewer class for managing 3D point cloud visualization
@@ -16,6 +17,7 @@ export class PointCloudViewer {
     this.isDefaultCloud = false; // Flagg for å vite om det er default-skyen
     this.explosionVelocities = null; // Lagrer velocity-data for eksplosjon
     this.measurementTool = null; // Referanse til measurement tool for rendering
+    this.heightColorCount = null; // Antall punkter (fra start) som får høydefarge; null = alle
 
     if (containerElement) {
       this.init(containerElement);
@@ -120,6 +122,9 @@ export class PointCloudViewer {
       this.pointCloud.geometry.dispose();
       this.pointCloud.material.dispose();
     }
+
+    // Ny sky: alle punkter får høydefarge inntil annet er satt (setHeightColorCount)
+    this.heightColorCount = null;
 
     // Opprett BufferGeometry
     const geometry = new THREE.BufferGeometry();
@@ -548,48 +553,42 @@ export class PointCloudViewer {
   }
 
   /**
-   * Recalculates point colors based on current Z-values
-   * Used after Z-axis inversion to update colors correctly
+   * Setter hvor mange punkter (fra starten av arrayet) som skal ha høydefarge.
+   * Brukes for default-skyen, der logo-punktene etter terrenget beholder egne farger.
    */
-  recalculateColorsFromZ() {
+  setHeightColorCount(count) {
+    this.heightColorCount = count;
+  }
+
+  /**
+   * Fargelegger punktene etter Z med gjeldende fargeskala (colorScale.js).
+   * Bruker original Z (sentrert Z + coordinateOffset.z).
+   */
+  applyHeightColors() {
     if (!this.pointCloud) return;
 
     const positions = this.pointCloud.geometry.attributes.position.array;
     const colors = this.pointCloud.geometry.attributes.color.array;
+    const zOffset = this.coordinateOffset.z;
+    const { min, max } = colorScale.getRange();
 
-    // First pass: find min/max Z
-    let minZ = Infinity;
-    let maxZ = -Infinity;
-
-    for (let i = 0; i < positions.length; i += 3) {
-      const z = positions[i + 2];
-      minZ = Math.min(minZ, z);
-      maxZ = Math.max(maxZ, z);
-    }
-
-    const zRange = maxZ - minZ || 1; // Avoid division by zero
+    const total = positions.length / 3;
+    const count = this.heightColorCount === null ? total : Math.min(this.heightColorCount, total);
 
     // Opprett tempColor objekt utenfor loopen for å unngå GC overhead
     const tempColor = new THREE.Color();
 
-    // Second pass: recalculate colors based on normalized Z
-    for (let i = 0; i < positions.length; i += 3) {
-      const z = positions[i + 2];
-      const normalizedZ = (z - minZ) / zRange;
-
-      // Use same color gradient as in parser: blue (0.6) to red (0.0)
-      tempColor.setHSL(0.6 - normalizedZ * 0.6, 1.0, 0.5);
-
-      const colorIndex = i; // Color array has same indices as position array
-      colors[colorIndex] = tempColor.r;
-      colors[colorIndex + 1] = tempColor.g;
-      colors[colorIndex + 2] = tempColor.b;
+    for (let p = 0; p < count; p++) {
+      const i = p * 3;
+      colorScale.heightToColor(positions[i + 2] + zOffset, tempColor, min, max);
+      colors[i] = tempColor.r;
+      colors[i + 1] = tempColor.g;
+      colors[i + 2] = tempColor.b;
     }
 
-    // Mark colors as updated
     this.pointCloud.geometry.attributes.color.needsUpdate = true;
-    console.log('Colors recalculated based on inverted Z-values');
   }
+
 
   /**
    * Inverterer Z-aksen for punktskyen
@@ -615,8 +614,9 @@ export class PointCloudViewer {
     // Marker at posisjoner er oppdatert
     this.pointCloud.geometry.attributes.position.needsUpdate = true;
 
-    // Recalculate colors based on new Z-values
-    this.recalculateColorsFromZ();
+    // Speil fargeskalaen og fargelegg på nytt (manuell skala følger med)
+    colorScale.invert();
+    this.applyHeightColors();
 
     // Beregn nye bounds (sentrerte)
     this.pointCloud.geometry.computeBoundingBox();
@@ -774,4 +774,12 @@ export function animateExplosion(callback) {
 
 export function invertZAxis() {
   return defaultViewer.invertZAxis();
+}
+
+export function applyHeightColors() {
+  defaultViewer.applyHeightColors();
+}
+
+export function setHeightColorCount(count) {
+  defaultViewer.setHeightColorCount(count);
 }

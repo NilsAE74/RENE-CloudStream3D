@@ -38,6 +38,7 @@ Det finnes **ingen tester, linter eller formatter**. Verifiser endringer med `np
 | `src/profile.js` | Tverrsnitt/profil langs en linje med tykkelse. Har både løse modulfunksjoner og `ProfileTool`-klasse. |
 | `src/grid.js` | Survey-grid med originale koordinater. |
 | `src/report.js` | PDF-rapport med jsPDF (kartbilde, statistikk, histogram, ev. profil). |
+| `src/colorScale.js` | Felles fargeskala for høydefarger (auto/manuell min–maks, `heightToColor`) og desimalregler for Z (`zDecimals`, `labelDecimals`). |
 
 Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare settings-objekter eksportert fra `ui.js`. Verktøy-instanser (measurement, profile) injiseres med `setMeasurementTool` / `setProfileTool`.
 
@@ -56,8 +57,15 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 - Eksport av valgte punkter skrives med 3 desimaler (mm).
 
 ### Filformater
-- Akseptert: `.xyz`, `.txt`, `.pcd`, `.ply`. Parseren er en ASCII-parser som leser de **tre første tallene på hver linje** (regex med `^` og flagg `m`, skilletegn mellomrom/tab, aldri over linjeskift). Ekstra kolonner (intensitet, RGB) ignoreres; linjer som ikke starter med tre tall (headere, kommentarer, PCD/PLY-header) hoppes over. Farge beregnes fra Z (HSL blå→rød).
+- Akseptert: `.xyz`, `.txt`, `.pcd`, `.ply`. Parseren er en ASCII-parser som leser de **tre første tallene på hver linje** (regex med `^` og flagg `m`, skilletegn mellomrom/tab, aldri over linjeskift). Ekstra kolonner (intensitet, RGB) ignoreres; linjer som ikke starter med tre tall (headere, kommentarer, PCD/PLY-header) hoppes over.
 - Støttes **ikke**: binære PCD/PLY, komma-/semikolonseparerte filer, og PLY-filer med flater (face-linjer som `3 0 1 2` blir lest som punkter).
+
+### Høydefarger og Z-visning
+- All høydefarging går via `src/colorScale.js` (blå ved min → rød ved maks, klippet utenfor). Ikke lag egne HSL-beregninger; bruk `heightToColor` / `heightToHue`.
+- Auto (standard): skalaen følger datasettets Z-område (`setDataRange`). Manuell (`setManualRange`, GUI «Color Scale (Z)») beholdes når ny fil lastes og speiles ved Z-invertering.
+- Etter endring av skalaen: `ui.refreshColorScale()` (punktfarger, legende, histogramfarger, GUI). Rapportens legende og histogram leser skalaen direkte.
+- For default-skyen fargelegges bare terrengpunktene (`viewer.setHeightColorCount`); logoen beholder egne farger.
+- Z-verdier vises med 3 desimaler når spennet er under 1 m, ellers 2 (`zDecimals`). Histogram-/rapportetiketter bruker `labelDecimals`.
 
 ### Default-sky
 - Ved oppstart lastes syntetisk terreng + logo-punktsky. `viewer.setIsDefaultCloud(true, velocities)` gjør at første opplastede fil trigger en eksplosjonsanimasjon før ny sky lastes.

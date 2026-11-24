@@ -9,6 +9,7 @@ import * as ui from './src/ui.js';
 import * as selection from './src/selection.js';
 import * as stats from './src/stats.js';
 import * as grid from './src/grid.js';
+import * as colorScale from './src/colorScale.js';
 import { MeasurementTool } from './src/measurement.js';
 import { ProfileTool } from './src/profile.js';
 import { initDraggablePanels } from './src/ui.js';
@@ -176,11 +177,18 @@ async function loadDefaultCloud() {
     // Terrain points come first in the combined array.
     const terrainPositions = pointCloud.geometry.attributes.position.array.subarray(0, terrainData.count * 3);
 
+    // Color scale: only terrain points get height colors (logo keeps its own colors).
+    // A manual scale is kept between files, so recolor if it is active.
+    viewer.setHeightColorCount(terrainData.count);
+    colorScale.setDataRange(terrainData.bounds.minZ, terrainData.bounds.maxZ);
+    if (!colorScale.isAuto()) viewer.applyHeightColors();
+
     // Update dashboard with statistics (TERRAIN ONLY, not logo)
     const resolution = stats.updateDashboard(terrainData.count, terrainData.bounds, terrainPositions, 'Default Terrain', offset.z);
 
-    // Update legend with Z-values (TERRAIN ONLY, not logo)
-    ui.updateLegend(terrainData.bounds.minZ, terrainData.bounds.maxZ);
+    // Update legend and color scale GUI
+    ui.updateLegend();
+    ui.syncColorScaleGUI();
 
     // Save statistics for report (TERRAIN ONLY, centered positions + zOffset for histogram)
     ui.updateStats({
@@ -329,11 +337,16 @@ function loadFile(file) {
       // Statistics use the centered positions stored in the geometry (no extra copy)
       const renderedPositions = pointCloud.geometry.attributes.position.array;
 
+      // Color scale: follow the new data in auto mode; keep a manual scale and recolor
+      colorScale.setDataRange(bounds.minZ, bounds.maxZ);
+      if (!colorScale.isAuto()) viewer.applyHeightColors();
+
       // Update dashboard with statistics
       const resolution = stats.updateDashboard(count, bounds, renderedPositions, file.name, offset.z);
 
-      // Update legend with Z-values
-      ui.updateLegend(bounds.minZ, bounds.maxZ);
+      // Update legend and color scale GUI
+      ui.updateLegend();
+      ui.syncColorScaleGUI();
 
       // Save statistics for report (centered positions + zOffset for histogram)
       ui.updateStats({
