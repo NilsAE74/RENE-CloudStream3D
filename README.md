@@ -11,7 +11,7 @@ Applikasjonen er deployet og tilgjengelig på:
 
 ## 📋 Funksjoner
 
-- 📂 Last opp og visualiser punktsky-filer (.xyz, .txt, .pcd, .ply)
+- 📂 Last opp og visualiser punktsky-filer (.xyz, .txt, .csv, .pcd, .ply). Skilletegn: mellomrom, tab, komma eller semikolon; desimalpunktum eller desimalkomma
 - 🎨 Interaktivt 3D-grensesnitt med orbit-kontroller
 - 📊 Sanntids-statistikk og histogram for høydedata
 - 🔲 Seleksjonsverktøy for å velge og eksportere punkter
@@ -105,7 +105,7 @@ RENE-CloudStream3D/
 
 1. **Last opp en punktsky:**
    - Klikk på "Last opp punktsky"-knappen
-   - Velg en fil i .xyz, .txt, .pcd eller .ply-format
+   - Velg en fil i .xyz, .txt, .csv, .pcd eller .ply-format
    - Punktskyen vil bli visualisert i 3D
 
 2. **Naviger i 3D:**

@@ -13,9 +13,10 @@ npm install        # installer avhengigheter
 npm run dev        # utviklingsserver, http://localhost:5173/RENE-CloudStream3D/
 npm run build      # produksjonsbygg til dist/
 npm run preview    # forhåndsvis dist/
+npm test           # parser-tester (node --test)
 ```
 
-Det finnes **ingen tester, linter eller formatter**. Verifiser endringer med `npm run build` og manuell test i nettleser (`npm run dev`). Chunk-size-advarselen (~1 MB bundle) ved build er kjent og ufarlig.
+`npm test` kjører parser-testene i `test/` (Node sin innebygde `node:test`, ingen avhengigheter; kjøres ikke i CI). Det finnes ingen linter eller formatter. Verifiser endringer med `npm test`, `npm run build` og manuell test i nettleser (`npm run dev`). Nye parser-regler skal ha testtilfeller. Chunk-size-advarselen (~1 MB bundle) ved build er kjent og ufarlig.
 
 ## Deploy
 
@@ -58,8 +59,9 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 - Eksport av valgte punkter skrives med 3 desimaler (mm).
 
 ### Filformater
-- Akseptert: `.xyz`, `.txt`, `.pcd`, `.ply`. Parseren er en ASCII-parser som leser de **tre første tallene på hver linje** (regex med `^` og flagg `m`, skilletegn mellomrom/tab, aldri over linjeskift). Ekstra kolonner (intensitet, RGB) ignoreres; linjer som ikke starter med tre tall (headere, kommentarer, PCD/PLY-header) hoppes over.
-- Støttes **ikke**: binære PCD/PLY, komma-/semikolonseparerte filer, og PLY-filer med flater (face-linjer som `3 0 1 2` blir lest som punkter).
+- Akseptert: `.xyz`, `.txt`, `.csv`, `.pcd`, `.ply`. Parseren er en ASCII-parser som leser de **tre første tallene på hver linje** (regex med `^` og flagg `m`, aldri over linjeskift). Ekstra kolonner (intensitet, RGB) ignoreres; linjer som ikke starter med tre tall (headere, kommentarer, PCD/PLY-header) hoppes over.
+- Skilletegn og desimaltegn finnes av `detectFormat` ut fra de første 50 datalinjene, og `buildLineRegex` lager regex for formatet: mellomrom/tab, `,` eller `;` som skilletegn. `;` → desimalkomma hvis det finnes komma. Komma der de tre første mellomrom-separerte feltene er tall med desimalkomma (`1,5 2,5 3,5`) → desimalkomma; ellers er komma skilletegn (`1.5,2.5,3.5`, `1.5, 2.5, 3.5`). Skilletegn velges ved flertall; desimalkomma hvis minst én linje har det.
+- Støttes **ikke**: binære PCD/PLY, og PLY-filer med flater (face-linjer som `3 0 1 2` blir lest som punkter).
 
 ### Høydefarger og Z-visning
 - All høydefarging går via `src/colorScale.js` (blå ved min → rød ved maks, klippet utenfor). Ikke lag egne HSL-beregninger; bruk `heightToColor` / `heightToHue`.
@@ -87,6 +89,5 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 ## Åpne punkter (GitHub-issues)
 
 - #5 Filer over ca. 512 MB (lese filen i biter)
-- #7 Komma-/semikolonseparerte filer
 - #8 PLY-filer med flater (face-linjer leses som punkter), binær PLY/PCD
 - #9 Lisenstekst i README

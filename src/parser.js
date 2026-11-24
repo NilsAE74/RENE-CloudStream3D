@@ -1,6 +1,88 @@
 import * as THREE from 'three';
 import { heightToColor } from './colorScale.js';
 
+// --- Skilletegn og desimaltegn (issue #7) ---
+
+// Tall med desimalpunktum eller desimalkomma (som regex-kildetekst)
+const NUM_DOT = '[+-]?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?';
+const NUM_COMMA = '[+-]?\\d*,?\\d+(?:[eE][+-]?\\d+)?';
+const TOKEN_DECIMAL_COMMA = /^[+-]?\d+(?:,\d+)?(?:[eE][+-]?\d+)?$/;
+const DATA_LINE = /^[ \t]*[+-]?\.?\d/;
+
+/**
+ * Finner skilletegn og desimaltegn ut fra de første datalinjene.
+ * Bare linjer som starter med et tall brukes (headere/kommentarer hoppes over).
+ *
+ * Regler per linje:
+ * - Inneholder ';'                      → skilletegn ';', desimalkomma hvis linjen har komma
+ * - Inneholder ',' og de tre første
+ *   mellomrom/tab-separerte feltene er
+ *   tall med desimalkomma (f.eks. "1,5 2,5 3,5") → skilletegn mellomrom, desimalkomma
+ * - Inneholder ellers ','               → skilletegn ',', desimalpunktum ("1.5,2.5,3.5" og "1.5, 2.5, 3.5")
+ * - Ellers                              → skilletegn mellomrom/tab, desimalpunktum
+ * Flertallet av de undersøkte linjene avgjør skilletegnet.
+ *
+ * @param {string} content - Filinnhold (bare starten leses)
+ * @param {number} maxLines - Antall datalinjer som undersøkes
+ * @returns {{delimiter: 'whitespace'|','|';', decimalComma: boolean}}
+ */
+export function detectFormat(content, maxLines = 50) {
+  const votes = new Map();
+  let start = 0;
+  let checked = 0;
+
+  while (checked < maxLines && start < content.length) {
+    let end = content.indexOf('\n', start);
+    if (end === -1) end = content.length;
+    const line = content.slice(start, end);
+    start = end + 1;
+
+    if (!DATA_LINE.test(line)) continue;
+    checked++;
+
+    let key;
+    if (line.includes(';')) {
+      key = line.includes(',') ? ';|comma' : ';|dot';
+    } else if (line.includes(',')) {
+      const tokens = line.trim().split(/[ \t]+/);
+      const wsDecimalComma = tokens.length >= 3 &&
+        tokens.slice(0, 3).every((t) => TOKEN_DECIMAL_COMMA.test(t));
+      key = wsDecimalComma ? 'whitespace|comma' : ',|dot';
+    } else {
+      key = 'whitespace|dot';
+    }
+    votes.set(key, (votes.get(key) || 0) + 1);
+  }
+
+  // Skilletegn avgjøres av flertallet. Desimalkomma velges hvis minst én linje med
+  // det skilletegnet har desimalkomma: linjer med bare heltall (f.eks. "500000 6000000 12")
+  // har ingen komma, men "12,5" på en annen linje må likevel ikke leses som 12.
+  const delimCount = new Map();
+  for (const [key, count] of votes) {
+    const delim = key.split('|')[0];
+    delimCount.set(delim, (delimCount.get(delim) || 0) + count);
+  }
+
+  let delimiter = 'whitespace';
+  let bestCount = 0;
+  for (const [delim, count] of delimCount) {
+    if (count > bestCount) { delimiter = delim; bestCount = count; }
+  }
+
+  return { delimiter, decimalComma: votes.has(`${delimiter}|comma`) };
+}
+
+/**
+ * Lager regex som leser de tre FØRSTE tallene på hver linje for gitt format.
+ * - Flagg 'm': ^ matcher starten av hver linje, så en match alltid starter på en ny linje.
+ * - Skilletegn bruker [ \t] (ikke \s), så en match aldri går over et linjeskift.
+ */
+export function buildLineRegex({ delimiter, decimalComma }) {
+  const num = `(${decimalComma ? NUM_COMMA : NUM_DOT})`;
+  const sep = delimiter === 'whitespace' ? '[ \\t]+' : `[ \\t]*${delimiter}[ \\t]*`;
+  return new RegExp(`^[ \\t]*${num}${sep}${num}${sep}${num}`, 'gm');
+}
+
 /**
  * Optimalisert parser for XYZ-filer
  * Bruker TypedArrays og unngår String.split() for å spare minne.
@@ -28,14 +110,14 @@ export function parseXYZFile(content) {
   let minY = Infinity, maxY = -Infinity;
   let minZ = Infinity, maxZ = -Infinity;
 
-  // Regex som leser de tre FØRSTE tallene på hver linje (X Y Z).
-  // - Flagg 'm': ^ matcher starten av hver linje, så en match alltid starter på en ny linje.
-  // - Skilletegn er [ \t]+ (ikke \s+), så en match aldri går over et linjeskift.
-  // Ekstra kolonner (intensitet, RGB, ...) ignoreres dermed, og linjer som ikke
-  // starter med tre tall (headere, kommentarer, PCD/PLY-header) hoppes over.
-  // V8 sin regex-motor er skrevet i C++ og er raskere enn manuell parsing for store strenger.
-  // Matcher: start av linje, (tall) mellomrom (tall) mellomrom (tall)
-  const lineRegex = /^[ \t]*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)[ \t]+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)[ \t]+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/gm;
+  // Finn skilletegn/desimaltegn fra starten av filen og lag regex for de tre
+  // FØRSTE tallene på hver linje (X Y Z). Ekstra kolonner (intensitet, RGB, ...)
+  // ignoreres, og linjer som ikke starter med tre tall (headere, kommentarer,
+  // PCD/PLY-header) hoppes over. V8 sin regex-motor er raskere enn manuell parsing.
+  const format = detectFormat(content);
+  const lineRegex = buildLineRegex(format);
+  const decimalComma = format.decimalComma;
+  console.log(`Format: delimiter=${format.delimiter}, decimal=${decimalComma ? 'comma' : 'dot'}`);
 
   let match;
 
@@ -46,9 +128,9 @@ export function parseXYZFile(content) {
   // --- PASS 1: Parse tekst til tall ---
   // Vi kjører regex i en løkke. exec() returnerer neste match uten å lage en gigantisk array.
   while ((match = lineRegex.exec(content)) !== null) {
-    const x = parseFloat(match[1]);
-    const y = parseFloat(match[2]);
-    const z = parseFloat(match[3]);
+    const x = parseFloat(decimalComma ? match[1].replace(',', '.') : match[1]);
+    const y = parseFloat(decimalComma ? match[2].replace(',', '.') : match[2]);
+    const z = parseFloat(decimalComma ? match[3].replace(',', '.') : match[3]);
 
     if (!hasOrigin) {
       originX = x;
@@ -111,6 +193,7 @@ export function parseXYZFile(content) {
     positions, // Float32Array, RELATIVT til origin
     colors,    // Float32Array
     count,
+    format,    // { delimiter, decimalComma }
     bounds: { minX, maxX, minY, maxY, minZ, maxZ }, // Absolutte koordinater
     origin: { x: originX, y: originY, z: originZ }  // Full presisjon
   };
