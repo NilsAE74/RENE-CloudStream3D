@@ -486,7 +486,19 @@ function handleInvertZ() {
 
   // Get coordinate offset to calculate original X/Y bounds
   const offset = viewer.getCoordinateOffset();
-  
+
+  // The viewer inverted its Z offset. Give the other tools the same offset,
+  // otherwise measurement, profile and selection export report Z as
+  // (-z + offset) instead of -(z + offset). Pass copies so the tools never
+  // share (and mutate) the viewer's offset object.
+  selection.setCoordinateOffset(offset.x, offset.y, offset.z);
+  if (measurementSettings.measurementTool) {
+    measurementSettings.measurementTool.setCoordinateOffset({ ...offset });
+  }
+  if (profileSettings.profileTool) {
+    profileSettings.profileTool.setCoordinateOffset({ ...offset });
+  }
+
   // Statistics use the centered positions directly (inverted in place by the viewer).
   // offset.z is already inverted, so centered Z + offset.z gives the original Z.
   stats.updateDashboard(pointCount, {

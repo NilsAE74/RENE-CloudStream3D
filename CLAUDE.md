@@ -49,7 +49,7 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 - Offset må settes i **alle** konsumenter ved hver innlasting: `selection`, `viewer`, `measurementTool`, `profileTool` (se `main.js`). Ny modul som viser/eksporterer koordinater må også få offset.
 - Scene-koordinater = sentrerte. Alt som vises til bruker, eksporteres eller skrives i rapport skal være **originale** koordinater (sentrert + offset).
 - Z er opp (`camera.up = (0,0,1)`), som i GIS/oppmåling. Ikke bytt til Three.js sin Y-opp-konvensjon.
-- `invertZAxis()` inverterer både punkt-Z og `coordinateOffset.z`. Statistikk/rapport må ta hensyn til invertert tilstand.
+- `invertZAxis()` inverterer punkt-Z og viewerens `coordinateOffset.z`. `handleInvertZ` i `ui.js` gir deretter den nye offseten (som kopi) til selection, measurement og profile. Nye verktøy som bruker offset må også oppdateres der.
 
 ### Statistikk
 - Dashboard-histogram, oppløsning og rapport-histogram bruker de **sentrerte** posisjonene i geometrien (`pointCloud.geometry.attributes.position.array`, ingen ekstra kopi) pluss `zOffset` for å få original Z. Min/maks-verdier vises fra de absolutte bounds. For default-skyen brukes kun terrengdelen (`subarray`), ikke logo-punktene.
