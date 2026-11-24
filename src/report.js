@@ -5,6 +5,7 @@
 import { jsPDF } from 'jspdf';
 import * as viewer from './viewer.js';
 import { getFileName } from './stats.js';
+import * as colorScale from './colorScale.js';
 
 // Konstanter
 const PAGE_WIDTH = 210;
@@ -163,7 +164,8 @@ async function createMapPage(pdf, reportData) {
       const legendX = imgX + imgSize - legendWidth - 3;
       const legendY = imgY + 3;
       
-      const legendDataUrl = createLegend(mapResult.minZ, mapResult.maxZ);
+      const colorRange = colorScale.getRange(); // Map colors follow the current color scale
+      const legendDataUrl = createLegend(colorRange.min, colorRange.max);
       pdf.addImage(legendDataUrl, 'PNG', legendX, legendY, legendWidth, legendHeight);
       
       // Scale info (placed under X-axis label)
@@ -188,11 +190,12 @@ async function createMapPage(pdf, reportData) {
   }
 
   yPos = drawSectionHeader(pdf, 'Statistics', yPos);
+  const zDec = colorScale.zDecimals(reportData.maxZ - reportData.minZ);
   const statsData = [
     ['Number of points', reportData.pointCount.toLocaleString('nb-NO')],
     ['Point resolution', `${reportData.resolution.toFixed(3)} m`],
-    ['Height range (Z)', `${reportData.minZ.toFixed(2)} to ${reportData.maxZ.toFixed(2)} m`],
-    ['Height span', `${(reportData.maxZ - reportData.minZ).toFixed(2)} m`],
+    ['Height range (Z)', `${reportData.minZ.toFixed(zDec)} to ${reportData.maxZ.toFixed(zDec)} m`],
+    ['Height span', `${(reportData.maxZ - reportData.minZ).toFixed(zDec)} m`],
     ['Extent X', `${reportData.areaX.toFixed(2)} m`],
     ['Extent Y', `${reportData.areaY.toFixed(2)} m`]
   ];
@@ -209,7 +212,7 @@ async function createMapPage(pdf, reportData) {
     yPos = drawSectionHeader(pdf, 'Z-Height Distribution', yPos);
     
     try {
-      const histogramDataUrl = createHistogramImage(reportData.positions, reportData.minZ, reportData.maxZ);
+      const histogramDataUrl = createHistogramImage(reportData.positions, reportData.minZ, reportData.maxZ, reportData.zOffset || 0);
       
       const histWidth = CONTENT_WIDTH;
       const histHeight = 60;
@@ -445,15 +448,18 @@ function createLegend(minZ, maxZ) {
   ctx.font = 'bold 11px Arial';
   ctx.textAlign = 'left';
   
+  // Decimals follow the span (3 under 1 m, 2 under 10 m, else 1)
+  const dec = colorScale.labelDecimals(maxZ - minZ);
+
   // Top label (max Z)
-  ctx.fillText(`${maxZ.toFixed(1)} m`, barX + barWidth + 5, barY + 5);
+  ctx.fillText(`${maxZ.toFixed(dec)} m`, barX + barWidth + 5, barY + 5);
   
   // Middle label
   const midZ = (minZ + maxZ) / 2;
-  ctx.fillText(`${midZ.toFixed(1)} m`, barX + barWidth + 5, barY + barHeight / 2 + 4);
+  ctx.fillText(`${midZ.toFixed(dec)} m`, barX + barWidth + 5, barY + barHeight / 2 + 4);
   
   // Bottom label (min Z)
-  ctx.fillText(`${minZ.toFixed(1)} m`, barX + barWidth + 5, barY + barHeight);
+  ctx.fillText(`${minZ.toFixed(dec)} m`, barX + barWidth + 5, barY + barHeight);
   
   // Title at top
   ctx.fillStyle = '#333';
@@ -467,7 +473,7 @@ function createLegend(minZ, maxZ) {
 /**
  * Creates histogram image for Z-height distribution with light background
  */
-function createHistogramImage(positions, minZ, maxZ) {
+function createHistogramImage(positions, minZ, maxZ, zOffset = 0) {
   const canvas = document.createElement('canvas');
   canvas.width = 1400;
   canvas.height = 500;
@@ -482,10 +488,11 @@ function createHistogramImage(positions, minZ, maxZ) {
   const bins = new Array(numBins).fill(0);
   const range = maxZ - minZ;
   const binSize = range / numBins;
+  const labelDec = colorScale.labelDecimals(range);
   
   // Count points in each bin
   for (let i = 0; i < positions.length; i += 3) {
-    const z = positions[i + 2];
+    const z = positions[i + 2] + zOffset; // Original Z (centered Z + offset)
     let binIndex = Math.floor((z - minZ) / binSize);
     if (binIndex >= numBins) binIndex = numBins - 1;
     if (binIndex < 0) binIndex = 0;
@@ -525,10 +532,8 @@ function createHistogramImage(positions, minZ, maxZ) {
     const binStart = minZ + (i * binSize);
     const binEnd = binStart + binSize;
     const avgZ = (binStart + binEnd) / 2;
-    const normalizedZ = (avgZ - minZ) / range;
-    
-    // Use same color scheme as dashboard (blue to red)
-    const hue = (0.6 - normalizedZ * 0.6) * 360;
+    // Use the current color scale (same as point cloud and dashboard)
+    const hue = colorScale.heightToHue(avgZ) * 360;
     ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
     
     // Draw bar
@@ -543,7 +548,7 @@ function createHistogramImage(positions, minZ, maxZ) {
     ctx.fillStyle = '#333';
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(binStart.toFixed(1), x + width / 2, padding.top + chartHeight + 25);
+    ctx.fillText(binStart.toFixed(labelDec), x + width / 2, padding.top + chartHeight + 25);
     
     // Draw count on top of bar if there's space
     if (barHeight > 30) {
@@ -560,7 +565,7 @@ function createHistogramImage(positions, minZ, maxZ) {
   ctx.font = 'bold 16px Arial';
   ctx.textAlign = 'center';
   const lastX = padding.left + (numBins * barWidth) - barSpacing / 2;
-  ctx.fillText(maxZ.toFixed(1), lastX, padding.top + chartHeight + 25);
+  ctx.fillText(maxZ.toFixed(labelDec), lastX, padding.top + chartHeight + 25);
   
   // Draw Y-axis labels (counts)
   ctx.fillStyle = '#333';

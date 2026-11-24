@@ -38,23 +38,34 @@ Det finnes **ingen tester, linter eller formatter**. Verifiser endringer med `np
 | `src/profile.js` | Tverrsnitt/profil langs en linje med tykkelse. Har både løse modulfunksjoner og `ProfileTool`-klasse. |
 | `src/grid.js` | Survey-grid med originale koordinater. |
 | `src/report.js` | PDF-rapport med jsPDF (kartbilde, statistikk, histogram, ev. profil). |
+| `src/colorScale.js` | Felles fargeskala for høydefarger (auto/manuell min–maks, `heightToColor`) og desimalregler for Z (`zDecimals`, `labelDecimals`). |
 
 Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare settings-objekter eksportert fra `ui.js`. Verktøy-instanser (measurement, profile) injiseres med `setMeasurementTool` / `setProfileTool`.
 
 ## Viktige konvensjoner
 
 ### Koordinater og offset (kritisk)
-- Input er typisk UTM (f.eks. X ≈ 500.000, Y ≈ 6.000.000). For WebGL float32-presisjon **sentreres** alle punkter rundt origo (`parser.centerPositions`) før rendering.
+- Input er typisk UTM (f.eks. X ≈ 500.000, Y ≈ 6.000.000). Float32 har bare ~7 gjeldende siffer: absolutte UTM-verdier i `Float32Array` avrundes til 0,5 m (Y) / 3 cm (X). **Lagre aldri absolutte UTM-koordinater i `Float32Array`.**
+- `parser.parseXYZFile` lagrer posisjoner relativt til første punkt (`origin`, double). `parser.centerPositions(positions, bounds, origin)` flytter dem så til senter; `offset` (double) er senter i absolutte koordinater. Bounds er alltid absolutte (double).
 - Offset må settes i **alle** konsumenter ved hver innlasting: `selection`, `viewer`, `measurementTool`, `profileTool` (se `main.js`). Ny modul som viser/eksporterer koordinater må også få offset.
 - Scene-koordinater = sentrerte. Alt som vises til bruker, eksporteres eller skrives i rapport skal være **originale** koordinater (sentrert + offset).
 - Z er opp (`camera.up = (0,0,1)`), som i GIS/oppmåling. Ikke bytt til Three.js sin Y-opp-konvensjon.
-- `invertZAxis()` inverterer både punkt-Z og `coordinateOffset.z`. Statistikk/rapport må ta hensyn til invertert tilstand.
+- `invertZAxis()` inverterer punkt-Z og viewerens `coordinateOffset.z`. `handleInvertZ` i `ui.js` gir deretter den nye offseten (som kopi) til selection, measurement og profile. Nye verktøy som bruker offset må også oppdateres der.
 
 ### Statistikk
-- Dashboard, legende og rapport-statistikk bruker **originale** posisjoner. For default-skyen brukes kun terrengdata, ikke logo-punktene.
+- Dashboard-histogram, oppløsning og rapport-histogram bruker de **sentrerte** posisjonene i geometrien (`pointCloud.geometry.attributes.position.array`, ingen ekstra kopi) pluss `zOffset` for å få original Z. Min/maks-verdier vises fra de absolutte bounds. For default-skyen brukes kun terrengdelen (`subarray`), ikke logo-punktene.
+- Eksport av valgte punkter skrives med 3 desimaler (mm).
 
 ### Filformater
-- Akseptert: `.xyz`, `.txt`, `.pcd`, `.ply`. Merk: parseren er reelt bare en ASCII XYZ-parser (regex som finner tre tall etter hverandre). ASCII PCD/PLY fungerer delvis; binære PCD/PLY støttes **ikke**. Ekstra kolonner (intensitet, RGB) ignoreres; farge beregnes fra Z (HSL blå→rød).
+- Akseptert: `.xyz`, `.txt`, `.pcd`, `.ply`. Parseren er en ASCII-parser som leser de **tre første tallene på hver linje** (regex med `^` og flagg `m`, skilletegn mellomrom/tab, aldri over linjeskift). Ekstra kolonner (intensitet, RGB) ignoreres; linjer som ikke starter med tre tall (headere, kommentarer, PCD/PLY-header) hoppes over.
+- Støttes **ikke**: binære PCD/PLY, komma-/semikolonseparerte filer, og PLY-filer med flater (face-linjer som `3 0 1 2` blir lest som punkter).
+
+### Høydefarger og Z-visning
+- All høydefarging går via `src/colorScale.js` (blå ved min → rød ved maks, klippet utenfor). Ikke lag egne HSL-beregninger; bruk `heightToColor` / `heightToHue`.
+- Auto (standard): skalaen følger datasettets Z-område (`setDataRange`). Manuell (`setManualRange`, GUI «Color Scale (Z)») beholdes når ny fil lastes og speiles ved Z-invertering.
+- Etter endring av skalaen: `ui.refreshColorScale()` (punktfarger, legende, histogramfarger, GUI). Rapportens legende og histogram leser skalaen direkte.
+- For default-skyen fargelegges bare terrengpunktene (`viewer.setHeightColorCount`); logoen beholder egne farger.
+- Z-verdier vises med 3 desimaler når spennet er under 1 m, ellers 2 (`zDecimals`). Histogram-/rapportetiketter bruker `labelDecimals`.
 
 ### Default-sky
 - Ved oppstart lastes syntetisk terreng + logo-punktsky. `viewer.setIsDefaultCloud(true, velocities)` gjør at første opplastede fil trigger en eksplosjonsanimasjon før ny sky lastes.
@@ -71,3 +82,11 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 - `prompt.txt` inneholder historiske utviklingsprompter, ikke kode.
 - `.txt` er ikke lenger ignorert i `.gitignore`. Ikke commit store punktsky-filer (`.txt`/`.xyz`) til repoet.
 - `index.html` lenker `/style.css` og `/public/CloudStream3D-logo.png` med absolutte stier; sjekk at de fungerer med `base`-stien i produksjon ved endringer.
+
+## Åpne punkter (GitHub-issues)
+
+- #5 Filer over ca. 512 MB (lese filen i biter)
+- #6 Fjerne ekstra kopier av punktene ved innlasting (minne)
+- #7 Komma-/semikolonseparerte filer
+- #8 PLY-filer med flater (face-linjer leses som punkter), binær PLY/PCD
+- #9 Lisenstekst i README

@@ -1,32 +1,47 @@
 import * as THREE from 'three';
+import { heightToColor } from './colorScale.js';
 
 /**
  * Optimalisert parser for XYZ-filer
  * Bruker TypedArrays og unngår String.split() for å spare minne.
+ *
+ * Presisjon: Float32 har bare ~7 gjeldende siffer, så UTM-verdier som
+ * Y ≈ 6.000.000 ville blitt avrundet til 0,5 m. Derfor lagres posisjonene
+ * RELATIVT til første punkt (origin), som holdes i full presisjon (double).
+ * Absolutt koordinat = positions[i] + origin. Bounds er i absolutte koordinater.
  */
 export function parseXYZFile(content) {
-  const len = content.length;
 
-  // 1. Estimer antall punkter for å pre-allokere minne.
-  // En typisk XYZ-linje er kanskje 25-50 bytes. Vi gjetter konservativt for å unngå resizing.
-  // Det er raskere å ha for mye minne og slice det etterpå, enn å growe arrayet.
-  const estimatedPoints = Math.ceil(len / 20);
+  // 1. Tell linjer for å pre-allokere riktig størrelse (ett punkt per linje).
+  // indexOf er rask, og dette unngår både overallokering og resizing.
+  let lineCount = 1;
+  for (let idx = content.indexOf('\n'); idx !== -1; idx = content.indexOf('\n', idx + 1)) {
+    lineCount++;
+  }
 
-  // Alloker TypedArrays (mye raskere enn vanlige arrays)
-  let positions = new Float32Array(estimatedPoints * 3);
-  let colors = new Float32Array(estimatedPoints * 3);
+  // Alloker TypedArray (mye raskere enn vanlige arrays).
+  // Farger allokeres først etter parsing, når antall punkter er kjent.
+  let positions = new Float32Array(lineCount * 3);
 
   let pIndex = 0; // Peker til hvor vi er i positions-arrayet
   let minX = Infinity, maxX = -Infinity;
   let minY = Infinity, maxY = -Infinity;
   let minZ = Infinity, maxZ = -Infinity;
 
-  // Regex for å finne tall. Dette er ofte raskere enn manuell parsing i JS for store strenger
-  // fordi V8 sin regex-motor er skrevet i C++.
-  // Matcher: (tall) mellomrom (tall) mellomrom (tall)
-  const lineRegex = /([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/g;
+  // Regex som leser de tre FØRSTE tallene på hver linje (X Y Z).
+  // - Flagg 'm': ^ matcher starten av hver linje, så en match alltid starter på en ny linje.
+  // - Skilletegn er [ \t]+ (ikke \s+), så en match aldri går over et linjeskift.
+  // Ekstra kolonner (intensitet, RGB, ...) ignoreres dermed, og linjer som ikke
+  // starter med tre tall (headere, kommentarer, PCD/PLY-header) hoppes over.
+  // V8 sin regex-motor er skrevet i C++ og er raskere enn manuell parsing for store strenger.
+  // Matcher: start av linje, (tall) mellomrom (tall) mellomrom (tall)
+  const lineRegex = /^[ \t]*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)[ \t]+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)[ \t]+([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/gm;
 
   let match;
+
+  // Lokalt origo (første punkt), lagret i full presisjon
+  let originX = 0, originY = 0, originZ = 0;
+  let hasOrigin = false;
 
   // --- PASS 1: Parse tekst til tall ---
   // Vi kjører regex i en løkke. exec() returnerer neste match uten å lage en gigantisk array.
@@ -35,20 +50,24 @@ export function parseXYZFile(content) {
     const y = parseFloat(match[2]);
     const z = parseFloat(match[3]);
 
-    // Utvid arrays hvis estimatet var for lavt
-    if (pIndex + 3 >= positions.length) {
-      const newPos = new Float32Array(positions.length * 2);
-      newPos.set(positions);
-      positions = newPos;
-
-      const newCol = new Float32Array(colors.length * 2);
-      newCol.set(colors);
-      colors = newCol;
+    if (!hasOrigin) {
+      originX = x;
+      originY = y;
+      originZ = z;
+      hasOrigin = true;
     }
 
-    positions[pIndex] = x;
-    positions[pIndex + 1] = y;
-    positions[pIndex + 2] = z;
+    // Utvid array hvis estimatet var for lavt
+    if (pIndex + 3 > positions.length) {
+      const newPos = new Float32Array(Math.max(positions.length * 2, 3));
+      newPos.set(positions);
+      positions = newPos;
+    }
+
+    // Lagre relativt til origo (differansen regnes i double før lagring i Float32)
+    positions[pIndex] = x - originX;
+    positions[pIndex + 1] = y - originY;
+    positions[pIndex + 2] = z - originZ;
 
     // Oppdater bounds "inline" for å unngå en ekstra loop
     if (x < minX) minX = x;
@@ -63,22 +82,25 @@ export function parseXYZFile(content) {
 
   const count = pIndex / 3;
 
-  // Trim arrays ned til faktisk størrelse
-  positions = positions.slice(0, pIndex);
-  colors = colors.slice(0, pIndex);
+  // Trim ned til faktisk størrelse (kopier bare hvis mye plass er ubrukt,
+  // ellers holder det med et view; arrayet kopieres uansett til GPU-bufferet)
+  if (pIndex < positions.length) {
+    positions = (positions.length - pIndex > positions.length * 0.01)
+      ? positions.slice(0, pIndex)
+      : positions.subarray(0, pIndex);
+  }
+  const colors = new Float32Array(pIndex);
 
   console.log(`Parsed ${count} points. Z-Range: ${minZ} to ${maxZ}`);
 
   // --- PASS 2: Fargelegging (Lynraskt siden vi jobber med tall) ---
-  const zRange = maxZ - minZ || 1;
   const tempColor = new THREE.Color(); // Gjenbruk objektet for å spare GC
 
   for (let i = 0; i < pIndex; i += 3) {
-    const z = positions[i + 2];
-    const normalizedZ = (z - minZ) / zRange;
+    const z = positions[i + 2] + originZ;
 
-    // Blå (0.6) til Rød (0.0)
-    tempColor.setHSL(0.6 - normalizedZ * 0.6, 1.0, 0.5);
+    // Blå (lav) til rød (høy), strukket over datasettets Z-område
+    heightToColor(z, tempColor, minZ, maxZ);
 
     colors[i] = tempColor.r;
     colors[i + 1] = tempColor.g;
@@ -86,17 +108,30 @@ export function parseXYZFile(content) {
   }
 
   return {
-    positions, // Returnerer nå Float32Array direkte
-    colors,    // Returnerer Float32Array direkte
+    positions, // Float32Array, RELATIVT til origin
+    colors,    // Float32Array
     count,
-    bounds: { minX, maxX, minY, maxY, minZ, maxZ }
+    bounds: { minX, maxX, minY, maxY, minZ, maxZ }, // Absolutte koordinater
+    origin: { x: originX, y: originY, z: originZ }  // Full presisjon
   };
 }
 
-export function centerPositions(positions, bounds) {
+/**
+ * Sentrerer posisjoner rundt origo.
+ * @param {Float32Array|number[]} positions - Posisjoner relativt til `origin`
+ * @param {Object} bounds - Absolutte bounds
+ * @param {Object} origin - Origo som posisjonene er relative til (default 0,0,0 = absolutte posisjoner)
+ * @returns {{centeredPositions: Float32Array, offset: {x,y,z}}} offset er i absolutte koordinater
+ */
+export function centerPositions(positions, bounds, origin = { x: 0, y: 0, z: 0 }) {
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerY = (bounds.minY + bounds.maxY) / 2;
   const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+
+  // Forskyvning fra origin til senter (regnes i double)
+  const shiftX = centerX - origin.x;
+  const shiftY = centerY - origin.y;
+  const shiftZ = centerZ - origin.z;
 
   console.log(`Centering offset: ${centerX}, ${centerY}, ${centerZ}`);
 
@@ -108,9 +143,9 @@ export function centerPositions(positions, bounds) {
   const centeredPositions = new Float32Array(positions.length);
 
   for (let i = 0; i < positions.length; i += 3) {
-    centeredPositions[i] = positions[i] - centerX;
-    centeredPositions[i + 1] = positions[i + 1] - centerY;
-    centeredPositions[i + 2] = positions[i + 2] - centerZ;
+    centeredPositions[i] = positions[i] - shiftX;
+    centeredPositions[i + 1] = positions[i + 1] - shiftY;
+    centeredPositions[i + 2] = positions[i + 2] - shiftZ;
   }
 
   return {
@@ -200,14 +235,12 @@ export function generateDefaultCloud() {
   console.log(`📍 Høydespenn: ${(maxZ - minZ).toFixed(2)}m (${minZ.toFixed(2)} til ${maxZ.toFixed(2)}m)`);
 
   // Fargelegging i samme loop siden vi vet Z-range på forhånd (baseZ til baseZ+10)
-  const zRange = maxZ - minZ || 1;
 
   for (let i = 0; i < positions.length; i += 3) {
     const z = positions[i + 2];
-    const normalizedZ = (z - minZ) / zRange;
 
     // Fargelegg basert på Z-verdi (samme gradient som i parseXYZFile)
-    tempColor.setHSL(0.6 - normalizedZ * 0.6, 1.0, 0.5); // Blå (0.6) til rød (0.0)
+    heightToColor(z, tempColor, minZ, maxZ);
     colors.push(tempColor.r, tempColor.g, tempColor.b);
   }
 

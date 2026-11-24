@@ -4,6 +4,7 @@ import * as selection from './selection.js';
 import * as stats from './stats.js';
 import * as report from './report.js';
 import * as grid from './grid.js';
+import * as colorScale from './colorScale.js';
 
 let gui;
 let pointFolder, sceneFolder, controlsFolder, boxFolder, measurementFolder, profileFolder;
@@ -19,6 +20,14 @@ export const settings = {
   showGrid: false,
   showLegend: true
 };
+
+// Color scale settings (GUI state, synced from colorScale.js)
+export const colorScaleSettings = {
+  auto: true,
+  min: 0,
+  max: 1
+};
+let colorScaleControllers = {};
 
 // Report metadata
 export const reportSettings = {
@@ -242,6 +251,28 @@ export function initGUI() {
   const sizeController = pointFolder.add(settings, 'pointSize', 0.01, 1, 0.01).name('Point Size');
   const colorController = pointFolder.addColor(settings, 'pointColor').name('Point Color');
   const heightColorController = pointFolder.add(settings, 'useHeightColor').name('Height-based Color');
+
+  // Color scale (Z): auto = stretch over the data, or a manual min/max
+  const colorScaleFolder = pointFolder.addFolder('🌈 Color Scale (Z)');
+  colorScaleControllers.auto = colorScaleFolder.add(colorScaleSettings, 'auto').name('Auto (fit to data)')
+    .onChange((value) => {
+      if (value) {
+        colorScale.setAuto();
+      } else {
+        colorScale.setManualRange(colorScaleSettings.min, colorScaleSettings.max);
+      }
+      refreshColorScale(true);
+    });
+  const onManualChange = () => {
+    colorScale.setManualRange(colorScaleSettings.min, colorScaleSettings.max);
+    refreshColorScale(true);
+  };
+  colorScaleControllers.min = colorScaleFolder.add(colorScaleSettings, 'min').step(0.001).name('Color min Z')
+    .onFinishChange(onManualChange);
+  colorScaleControllers.max = colorScaleFolder.add(colorScaleSettings, 'max').step(0.001).name('Color max Z')
+    .onFinishChange(onManualChange);
+  colorScaleFolder.close();
+
   pointFolder.close(); // Closed by default
 
   // Scene settings folder
@@ -486,16 +517,21 @@ function handleInvertZ() {
 
   // Get coordinate offset to calculate original X/Y bounds
   const offset = viewer.getCoordinateOffset();
-  
-  // Convert centered positions back to original for histogram
-  const originalPositions = new Float32Array(positions.length);
-  for (let i = 0; i < positions.length; i += 3) {
-    originalPositions[i] = positions[i] + offset.x;
-    originalPositions[i + 1] = positions[i + 1] + offset.y;
-    originalPositions[i + 2] = positions[i + 2] + offset.z;  // Using the inverted offset
+
+  // The viewer inverted its Z offset. Give the other tools the same offset,
+  // otherwise measurement, profile and selection export report Z as
+  // (-z + offset) instead of -(z + offset). Pass copies so the tools never
+  // share (and mutate) the viewer's offset object.
+  selection.setCoordinateOffset(offset.x, offset.y, offset.z);
+  if (measurementSettings.measurementTool) {
+    measurementSettings.measurementTool.setCoordinateOffset({ ...offset });
+  }
+  if (profileSettings.profileTool) {
+    profileSettings.profileTool.setCoordinateOffset({ ...offset });
   }
 
-  // Update dashboard with ORIGINAL values
+  // Statistics use the centered positions directly (inverted in place by the viewer).
+  // offset.z is already inverted, so centered Z + offset.z gives the original Z.
   stats.updateDashboard(pointCount, {
     minX: boundingBox.min.x + offset.x,
     maxX: boundingBox.max.x + offset.x,
@@ -503,16 +539,18 @@ function handleInvertZ() {
     maxY: boundingBox.max.y + offset.y,
     minZ: originalMinZ,  // Already converted to original in viewer.js
     maxZ: originalMaxZ   // Already converted to original in viewer.js
-  }, originalPositions);
+  }, positions, '', offset.z);
 
-  // Update legend with new Z-values
-  updateLegend(originalMinZ, originalMaxZ);
+  // Update legend and GUI with the (inverted) color scale; points are already recolored by the viewer
+  updateLegend();
+  syncColorScaleGUI();
 
   // Update statistics for report with new Z-values AND positions
   if (currentStats) {
     currentStats.minZ = originalMinZ;
     currentStats.maxZ = originalMaxZ;
-    currentStats.positions = originalPositions;  // Update positions for histogram
+    currentStats.positions = positions;  // Centered positions for histogram
+    currentStats.zOffset = offset.z;
     console.log('Statistics updated for PDF export with inverted Z-values and positions');
   }
 
@@ -613,7 +651,7 @@ async function handleGenerateReport() {
     stats.showLoadingSpinner('Generating PDF report...');
     stats.showDashboardMessage('⏳ Generating PDF report...', 'info');
     
-    // Use positions from stored statistics (original coordinates)
+    // Use positions from stored statistics (centered coordinates + zOffset)
     const positions = currentStats.positions || null;
     
     const reportData = {
@@ -627,7 +665,8 @@ async function handleGenerateReport() {
       areaX: currentStats.areaX,
       areaY: currentStats.areaY,
       resolution: currentStats.resolution,
-      positions: positions  // Add positions for histogram
+      positions: positions,  // Centered positions for histogram
+      zOffset: currentStats.zOffset || 0
     };
     
     await report.generatePDFReport(
@@ -672,26 +711,62 @@ export function getGUI() {
 }
 
 /**
- * Updates height legend with Z-values
+ * Updates the height legend from the current color scale (colorScale.js)
  */
-export function updateLegend(minZ, maxZ) {
+export function updateLegend() {
   const legend = document.getElementById('height-legend');
   if (!legend) return;
+
+  const { min: minZ, max: maxZ } = colorScale.getRange();
+  const span = maxZ - minZ;
+  const dec = colorScale.zDecimals(span);
 
   const maxLabel = legend.querySelector('.legend-max');
   const midLabel = legend.querySelector('.legend-mid');
   const minLabel = legend.querySelector('.legend-min');
+  const spanLabel = legend.querySelector('.legend-span');
+  const modeLabel = legend.querySelector('.legend-mode');
 
   if (maxLabel && midLabel && minLabel) {
-    maxLabel.textContent = maxZ.toFixed(2);
-    midLabel.textContent = ((minZ + maxZ) / 2).toFixed(2);
-    minLabel.textContent = minZ.toFixed(2);
+    maxLabel.textContent = maxZ.toFixed(dec);
+    midLabel.textContent = ((minZ + maxZ) / 2).toFixed(dec);
+    minLabel.textContent = minZ.toFixed(dec);
+  }
+  if (spanLabel) {
+    spanLabel.textContent = `Δz ${span.toFixed(dec)} m`;
+  }
+  if (modeLabel) {
+    modeLabel.style.display = colorScale.isAuto() ? 'none' : 'block';
   }
 
   // Vis legenden hvis den er aktivert
   if (settings.showLegend) {
     legend.style.display = 'block';
   }
+}
+
+/**
+ * Copies the current color scale into the GUI controls
+ */
+export function syncColorScaleGUI() {
+  const { min, max } = colorScale.getRange();
+  colorScaleSettings.auto = colorScale.isAuto();
+  colorScaleSettings.min = Number(min.toFixed(3));
+  colorScaleSettings.max = Number(max.toFixed(3));
+  Object.values(colorScaleControllers).forEach(c => c.updateDisplay());
+}
+
+/**
+ * Applies the current color scale everywhere: point colors, legend, histogram, GUI.
+ * @param {boolean} recolorPoints - Recalculate point colors (not needed if they already match)
+ */
+export function refreshColorScale(recolorPoints = true) {
+  if (recolorPoints) {
+    viewer.applyHeightColors();
+  }
+  updateLegend();
+  stats.refreshHistogramColors();
+  syncColorScaleGUI();
 }
 
 /**
