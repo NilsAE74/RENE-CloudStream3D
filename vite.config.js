@@ -1,5 +1,10 @@
 import { defineConfig } from 'vite'
 import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+
+// Appversjon fra package.json (semantisk versjon, se CHANGELOG.md). Leses her ved
+// bygging, så klientkoden ikke importerer package.json.
+const APP_VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')).version
 
 // Commit-hash for versjonsvisning (src/version.js).
 // GitHub Actions setter GITHUB_SHA; lokalt brukes git. "-dirty" = ukommiterte endringer.
@@ -18,6 +23,7 @@ function gitCommit() {
 export default defineConfig({
   base: '/RENE-CloudStream3D/',
   define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
     __APP_COMMIT__: JSON.stringify(gitCommit()),
     __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },

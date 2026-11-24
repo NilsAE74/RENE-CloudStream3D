@@ -73,13 +73,34 @@ Applikasjonen er deployet og tilgjengelig på:
 
 ## 📦 Deployment
 
-Hver push til `main` bygger og deployer automatisk til GitHub Pages via `.github/workflows/deploy.yml`. Workflowen kan også startes manuelt: **Actions** → **Deploy to GitHub Pages** → **Run workflow**.
+Hver push til `main` kjører testene, bygger og deployer automatisk til GitHub Pages via `.github/workflows/deploy.yml`. Workflowen kan også startes manuelt: **Actions** → **Deploy to GitHub Pages** → **Run workflow**.
 
 **Første gang:** Gå til [Settings → Pages](https://github.com/NilsAE74/RENE-CloudStream3D/settings/pages) og sett **Source** til `GitHub Actions`. Ingen andre innstillinger trengs; workflowen ber selv om tilgangene den trenger.
 
 **Viktig:**
 - `base` i `vite.config.js` må være `'/<repo-navn>/'` (nå `'/RENE-CloudStream3D/'`). Feil verdi gir blank side, fordi JS/CSS ikke blir funnet.
 - GitHub Pages for private repoer krever GitHub Pro, Team eller Enterprise.
+
+## 🏷️ Versjoner og release
+
+Versjonen (f.eks. `CloudStream3D v1.0.0-rc.1 (161da9e)`) står nederst i appen og i bunnteksten i PDF-rapporten. Endringer per versjon står i [CHANGELOG.md](CHANGELOG.md).
+
+Semantisk versjonering, tilpasset en app uten API:
+- **Major:** samme fil kan gi andre tall (koordinater, statistikk, oppløsning), eller et filformat fjernes.
+- **Minor:** nye funksjoner eller filformater.
+- **Patch:** feilrettinger som ikke endrer resultater.
+
+Ny release (på `main`, se CLAUDE.md for detaljer og overgangen fra `1.0.0-rc.1` til `1.0.0`):
+
+```bash
+# 1. Flytt [Unreleased] i CHANGELOG.md til ny versjon og commit
+git commit -am "CHANGELOG for x.y.z"
+# 2. Test, og lag versjons-commit og tag (krever ingen ukommiterte endringer i sporede filer)
+npm test && npm run build
+npm version <major|minor|patch> -m "Release v%s"
+# 3. Push commit og tag (deployer), og lag GitHub Release fra taggen
+git push --follow-tags
+```
 
 ## 📂 Prosjektstruktur
 
@@ -97,12 +118,14 @@ RENE-CloudStream3D/
 │   ├── measurement.js          # Avstandsmåling
 │   ├── profile.js              # Tverrsnitt/profil
 │   ├── grid.js                 # Koordinatgrid
-│   └── report.js               # PDF-rapport generering
+│   ├── report.js               # PDF-rapport generering
+│   └── version.js              # Versjonsvisning i app og rapport
 ├── index.html                  # Hoved HTML-fil
 ├── main.js                     # Hovedfil som koordinerer moduler
 ├── style.css                   # Global styling
 ├── vite.config.js              # Vite-konfigurasjon
 ├── package.json                # Node.js avhengigheter
+├── CHANGELOG.md                # Endringer per versjon
 └── README.md                   # Denne filen
 ```
 
