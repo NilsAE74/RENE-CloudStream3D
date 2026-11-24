@@ -22,6 +22,7 @@ npm test           # parser-tester (node --test)
 
 - `.github/workflows/deploy.yml`: push til `main` → `npm ci` + `npm run build` → GitHub Pages (Node 18).
 - `vite.config.js` har `base: '/RENE-CloudStream3D/'`. Må matche repo-navnet, ellers svart skjerm/404 på assets i produksjon.
+- Versjon: `vite.config.js` setter `__APP_COMMIT__` (fra `GITHUB_SHA` i Actions, ellers `git rev-parse`; `-dirty` ved lokale endringer) og `__APP_BUILD_TIME__` via `define`. `package.json`-versjonen (`0.0.0`) brukes ikke. Vises i appen og i PDF-rapporten, så man kan se hvilken commit som kjører.
 - Statiske filer (logoer) ligger i `public/` og refereres med absolutt sti (`/RENElogo.png` o.l.).
 
 ## Arkitektur
@@ -40,6 +41,7 @@ npm test           # parser-tester (node --test)
 | `src/grid.js` | Survey-grid med originale koordinater. |
 | `src/report.js` | PDF-rapport med jsPDF (kartbilde, statistikk, histogram, ev. profil). |
 | `src/pointFormats.js` | PLY/PCD: `parseHeader` (header → beskrivelse av dataene), `AsciiBodyParser` / `parseAsciiBody` (ASCII i biter / hel streng), `parseBinaryFile` / `parseBinaryBody` (egen `DataView`-leser, vinduer / hel buffer), `readPointFile` / `parsePointFile` (innlesing i nettleser, strømming). |
+| `src/version.js` | Versjonsinfo: commit-hash og byggedato (`VERSION_TEXT`), etikett nederst på midten (`showVersionLabel`, skjult under 900 px) og bunntekst i PDF-rapporten. |
 | `src/colorScale.js` | Felles fargeskala for høydefarger (auto/manuell min–maks, `heightToColor`) og desimalregler for Z (`zDecimals`, `labelDecimals`). |
 
 Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare settings-objekter eksportert fra `ui.js`. Verktøy-instanser (measurement, profile) injiseres med `setMeasurementTool` / `setProfileTool`.

@@ -14,6 +14,7 @@ import * as colorScale from './src/colorScale.js';
 import { MeasurementTool } from './src/measurement.js';
 import { ProfileTool } from './src/profile.js';
 import { initDraggablePanels } from './src/ui.js';
+import { showVersionLabel } from './src/version.js';
 
 // Global variabel for å spore om brukeren har lastet en fil
 let hasUserUploadedFile = false;
@@ -51,6 +52,7 @@ updateUploadButtonVisibility();
 
 // Initialiser draggable panels
 initDraggablePanels();
+showVersionLabel();
 
 // Initialiser Selection Box
 const { selectionBox, transformControls } = selection.initSelectionBox(
