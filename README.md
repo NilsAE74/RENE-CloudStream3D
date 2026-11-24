@@ -11,7 +11,12 @@ Applikasjonen er deployet og tilgjengelig på:
 
 ## 📋 Funksjoner
 
-- 📂 Last opp og visualiser punktsky-filer (.xyz, .txt, .pcd, .ply)
+- 📂 Last opp og visualiser punktsky-filer (.xyz, .txt, .csv, .pcd, .ply). Skilletegn: mellomrom, tab, komma eller semikolon; desimalpunktum eller desimalkomma
+  - PLY: ASCII og binær little endian. Bare vertex-data leses (flater/faces ignoreres), x/y/z kan stå i vilkårlig rekkefølge, float eller double
+  - PCD: `DATA ascii` og `DATA binary`. NaN-punkter hoppes over
+  - Ikke støttet: binær big endian PLY og komprimert PCD (`binary_compressed`). Disse gir en feilmelding
+  - UTM-koordinater beholder full presisjon (double) også for binære filer
+  - Store filer leses i biter, så filer over 512 MB (nettleserens grense for én tekststreng) kan lastes. Fremdrift vises i prosent. Testet med 20 mill. punkter (600 MB): ca. 8 s innlesing i Chromium
 - 🎨 Interaktivt 3D-grensesnitt med orbit-kontroller
 - 📊 Sanntids-statistikk og histogram for høydedata
 - 🔲 Seleksjonsverktøy for å velge og eksportere punkter
@@ -105,7 +110,7 @@ RENE-CloudStream3D/
 
 1. **Last opp en punktsky:**
    - Klikk på "Last opp punktsky"-knappen
-   - Velg en fil i .xyz, .txt, .pcd eller .ply-format
+   - Velg en fil i .xyz, .txt, .csv, .pcd eller .ply-format
    - Punktskyen vil bli visualisert i 3D
 
 2. **Naviger i 3D:**

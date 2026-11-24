@@ -5,6 +5,7 @@
 
 import * as viewer from './src/viewer.js';
 import * as parser from './src/parser.js';
+import { readPointFile, parsePointFile } from './src/pointFormats.js';
 import * as ui from './src/ui.js';
 import * as selection from './src/selection.js';
 import * as stats from './src/stats.js';
@@ -268,191 +269,222 @@ loadDefaultCloud().then(() => {
 // Handle file upload
 const fileInput = document.getElementById('fileInput');
 
+// True mens en fil leses inn (fra readPointFile til punktskyen er vist eller feil)
+let isLoadingFile = false;
+
 // Function to load file (used by both file input and drag-drop)
-function loadFile(file) {
+async function loadFile(file) {
   if (!file) {
     stats.showDashboardMessage('No file selected', 'error');
     return;
   }
 
-  const reader = new FileReader();
+  // Bare én innlesing om gangen (parsingen er asynkron og gir fra seg kontrollen underveis)
+  if (isLoadingFile) {
+    stats.showDashboardMessage('A file is already loading. Please wait.', 'error');
+    return;
+  }
 
-  reader.onload = (e) => {
-    const content = e.target.result;
+  // Les bare headeren fra starten av filen. Selve dataene leses i biter av
+  // parsePointFile. Formater som ikke støttes gir feil her, før eksplosjonen.
+  isLoadingFile = true;
+  let fileData;
+  try {
+    fileData = await readPointFile(file);
+  } catch (error) {
+    isLoadingFile = false;
+    console.warn('Error reading file:', error.message);
+    stats.showDashboardMessage(`Error reading ${file.name}: ${error.message}`, 'error');
+    return;
+  }
 
-    console.log('=== FILE UPLOADED ===');
-    console.log(`Filename: ${file.name}`);
-    console.log(`Size: ${(file.size / 1024).toFixed(2)} KB`);
+  console.log('=== FILE UPLOADED ===');
+  console.log(`Filename: ${file.name}`);
+  console.log(`Size: ${(file.size / 1024).toFixed(2)} KB`);
 
-    // Function that actually loads the new file
-    const processNewFile = () => {
+  // Function that actually loads the new file
+  const processNewFile = () => {
+  try {
+    // Show loading spinner
+    stats.showLoadingSpinner(`Parsing ${file.name}...`);
+    
+    console.log('Starting file parsing...');
+
+    // Parse filen i biter (use setTimeout to allow UI to update first)
+    setTimeout(async () => {
+    // Skjul forrige sky mens den nye leses: nettleseren tegner mellom bitene, og en
+    // stor sky gjør hvert bilde tregt (særlig på svake GPU-er). Vises igjen ved feil.
+    const previousCloud = viewer.getPointCloud();
+    if (previousCloud) previousCloud.visible = false;
+    const restorePreviousCloud = () => { if (previousCloud) previousCloud.visible = true; };
+
     try {
-      // Show loading spinner
-      stats.showLoadingSpinner(`Parsing ${file.name}...`);
-      
-      console.log('Starting file parsing...');
-
-      // Parse XYZ file (use setTimeout to allow UI to update)
-      setTimeout(() => {
-      try {
-      const { positions, colors, count, bounds, origin } = parser.parseXYZFile(content);
-
-      if (count === 0) {
-        stats.showDashboardMessage('No valid points found in file!', 'error');
-        return;
+    const parseStart = performance.now();
+    const { positions, colors, count, bounds, origin } = await parsePointFile(fileData, {
+      onProgress: (fraction) => {
+        stats.showLoadingSpinner(`Parsing ${file.name}... ${Math.floor(fraction * 100)} %`);
       }
+    });
+    fileData = null;
+    console.log(`Parsing took ${((performance.now() - parseStart) / 1000).toFixed(2)} s`);
+    stats.showLoadingSpinner(`Creating point cloud (${count.toLocaleString('nb-NO')} points)...`);
+    // La spinner-teksten tegnes før de synkrone stegene under (sentrering, statistikk)
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-      console.log('Parsing completed. Creating point cloud...');
-      console.log(`Positions array length: ${positions.length}`);
-      console.log(`Colors array length: ${colors.length}`);
-
-      // Center positions around origin for better WebGL precision
-      const { centeredPositions, offset } = parser.centerPositions(positions, bounds, origin);
-
-      // Save offset in selection module for correct export
-      selection.setCoordinateOffset(offset.x, offset.y, offset.z);
-
-      // Save offset in viewer module for inversion
-      viewer.setCoordinateOffset(offset.x, offset.y, offset.z);
-
-      // Save offset in measurement tool
-      measurementTool.setCoordinateOffset(offset);
-      
-      // Save offset in profile tool
-      profileTool.setCoordinateOffset(offset);
-
-      console.log('📏 Measurement tool updated for new point cloud');
-      console.log('✂️ Profile tool updated for new point cloud');
-      console.log(`   Coordinate offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
-      
-      // Create point cloud and add to scene (using CENTERED positions for rendering)
-      const pointCloud = viewer.addPointCloud(
-        centeredPositions,
-        colors,
-        ui.settings.pointSize,
-        ui.settings.useHeightColor,
-        ui.settings.pointColor
-      );
-
-      // Statistics use the centered positions stored in the geometry (no extra copy)
-      const renderedPositions = pointCloud.geometry.attributes.position.array;
-
-      // Color scale: follow the new data in auto mode; keep a manual scale and recolor
-      colorScale.setDataRange(bounds.minZ, bounds.maxZ);
-      if (!colorScale.isAuto()) viewer.applyHeightColors();
-
-      // Update dashboard with statistics
-      const resolution = stats.updateDashboard(count, bounds, renderedPositions, file.name, offset.z);
-
-      // Update legend and color scale GUI
-      ui.updateLegend();
-      ui.syncColorScaleGUI();
-
-      // Save statistics for report (centered positions + zOffset for histogram)
-      ui.updateStats({
-        pointCount: count,
-        minZ: bounds.minZ,
-        maxZ: bounds.maxZ,
-        areaX: bounds.maxX - bounds.minX,
-        areaY: bounds.maxY - bounds.minY,
-        resolution: resolution,
-        positions: renderedPositions,
-        zOffset: offset.z
-      });
-
-      // Calculate bounding box and center camera
-      const geometry = pointCloud.geometry;
-      geometry.computeBoundingBox();
-      geometry.computeBoundingSphere();
-
-      const { center, size, maxDim } = viewer.centerCameraOnBounds(
-        geometry.boundingBox,
-        geometry.boundingSphere
-      );
-
-      // Respect GUI settings for axes
-      viewer.setAxesVisible(ui.settings.showAxes);
-
-      // Create coordinate grid with original coordinates (but keep it hidden by default)
-      grid.createSurveyGrid(geometry.boundingBox, offset, viewer.getScene());
-      grid.setGridVisible(ui.settings.showGrid);
-
-      // Keep all folders closed by default
-      // ui.openPointFolder();
-
-      // Update GUI ranges based on actual data
-      ui.updateGUIRanges(bounds);
-
-      // Hide selection box by default
-      selectionBox.visible = false;
-      transformControls.visible = false;
-      ui.boxSettings.visible = false;
-      
-      // Position selection box
-      selection.positionSelectionBox(center, size, ui.boxSettings);
-
-      // Update GUI
-      ui.updateDisplay();
-
-      // Reset originalColors when new file is loaded
-      selection.resetOriginalColors();
-
-      // Mark that this is no longer the default cloud
-      viewer.setIsDefaultCloud(false, null);
-
-      // Hide loading spinner
+    if (count === 0) {
+      isLoadingFile = false;
+      restorePreviousCloud();
       stats.hideLoadingSpinner();
+      stats.showDashboardMessage('No valid points found in file!', 'error');
+      return;
+    }
 
-      console.log('Point cloud created!');
-      stats.showDashboardMessage(`✓ Point cloud loaded! ${count.toLocaleString('nb-NO')} points visualized.`, 'info');
+    console.log('Parsing completed. Creating point cloud...');
+    console.log(`Positions array length: ${positions.length}`);
+    console.log(`Colors array length: ${colors.length}`);
 
-      // Marker at brukeren har lastet en fil
-      hasUserUploadedFile = true;
+    // Center positions around origin for better WebGL precision
+    const { centeredPositions, offset } = parser.centerPositions(positions, bounds, origin);
 
-      // Oppdater upload knapp visning etter fil er lastet
-      updateUploadButtonVisibility();
-      
-      } catch (error) {
-        stats.hideLoadingSpinner();
-        console.error('Error parsing file:', error);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-        stats.showDashboardMessage(`Error parsing: ${error.message}`, 'error');
-      }
-      }, 100); // Small delay to allow UI to update
+    // Save offset in selection module for correct export
+    selection.setCoordinateOffset(offset.x, offset.y, offset.z);
 
+    // Save offset in viewer module for inversion
+    viewer.setCoordinateOffset(offset.x, offset.y, offset.z);
+
+    // Save offset in measurement tool
+    measurementTool.setCoordinateOffset(offset);
+    
+    // Save offset in profile tool
+    profileTool.setCoordinateOffset(offset);
+
+    console.log('📏 Measurement tool updated for new point cloud');
+    console.log('✂️ Profile tool updated for new point cloud');
+    console.log(`   Coordinate offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
+    
+    // Create point cloud and add to scene (using CENTERED positions for rendering)
+    const pointCloud = viewer.addPointCloud(
+      centeredPositions,
+      colors,
+      ui.settings.pointSize,
+      ui.settings.useHeightColor,
+      ui.settings.pointColor
+    );
+
+    // Statistics use the centered positions stored in the geometry (no extra copy)
+    const renderedPositions = pointCloud.geometry.attributes.position.array;
+
+    // Color scale: follow the new data in auto mode; keep a manual scale and recolor
+    colorScale.setDataRange(bounds.minZ, bounds.maxZ);
+    if (!colorScale.isAuto()) viewer.applyHeightColors();
+
+    // Update dashboard with statistics
+    const resolution = stats.updateDashboard(count, bounds, renderedPositions, file.name, offset.z);
+
+    // Update legend and color scale GUI
+    ui.updateLegend();
+    ui.syncColorScaleGUI();
+
+    // Save statistics for report (centered positions + zOffset for histogram)
+    ui.updateStats({
+      pointCount: count,
+      minZ: bounds.minZ,
+      maxZ: bounds.maxZ,
+      areaX: bounds.maxX - bounds.minX,
+      areaY: bounds.maxY - bounds.minY,
+      resolution: resolution,
+      positions: renderedPositions,
+      zOffset: offset.z
+    });
+
+    // Calculate bounding box and center camera
+    const geometry = pointCloud.geometry;
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+
+    const { center, size, maxDim } = viewer.centerCameraOnBounds(
+      geometry.boundingBox,
+      geometry.boundingSphere
+    );
+
+    // Respect GUI settings for axes
+    viewer.setAxesVisible(ui.settings.showAxes);
+
+    // Create coordinate grid with original coordinates (but keep it hidden by default)
+    grid.createSurveyGrid(geometry.boundingBox, offset, viewer.getScene());
+    grid.setGridVisible(ui.settings.showGrid);
+
+    // Keep all folders closed by default
+    // ui.openPointFolder();
+
+    // Update GUI ranges based on actual data
+    ui.updateGUIRanges(bounds);
+
+    // Hide selection box by default
+    selectionBox.visible = false;
+    transformControls.visible = false;
+    ui.boxSettings.visible = false;
+    
+    // Position selection box
+    selection.positionSelectionBox(center, size, ui.boxSettings);
+
+    // Update GUI
+    ui.updateDisplay();
+
+    // Reset originalColors when new file is loaded
+    selection.resetOriginalColors();
+
+    // Mark that this is no longer the default cloud
+    viewer.setIsDefaultCloud(false, null);
+
+    // Hide loading spinner
+    isLoadingFile = false;
+    stats.hideLoadingSpinner();
+
+    console.log('Point cloud created!');
+    stats.showDashboardMessage(`✓ Point cloud loaded! ${count.toLocaleString('nb-NO')} points visualized.`, 'info');
+
+    // Marker at brukeren har lastet en fil
+    hasUserUploadedFile = true;
+
+    // Oppdater upload knapp visning etter fil er lastet
+    updateUploadButtonVisibility();
+    
     } catch (error) {
+      isLoadingFile = false;
+      restorePreviousCloud();
       stats.hideLoadingSpinner();
       console.error('Error parsing file:', error);
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
       stats.showDashboardMessage(`Error parsing: ${error.message}`, 'error');
-      }
-    };
+    }
+    }, 100); // Small delay to allow UI to update
 
-    // Check if we should trigger explosion
-    if (viewer.getIsDefaultCloud()) {
-      console.log('🎆 Default cloud detected! Starting explosion before loading new file...');
-      stats.showDashboardMessage('🎆 Exploding logo...', 'info');
-
-      // Trigger explosion, and load new file when animation is finished
-      viewer.animateExplosion(() => {
-        console.log('Explosion finished, loading new file...');
-        processNewFile();
-      });
-    } else {
-      // Not default cloud, load file directly
-      processNewFile();
+  } catch (error) {
+    isLoadingFile = false;
+    stats.hideLoadingSpinner();
+    console.error('Error parsing file:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    stats.showDashboardMessage(`Error parsing: ${error.message}`, 'error');
     }
   };
-  
-  reader.onerror = () => {
-    stats.showDashboardMessage('Feil ved lesing av fil', 'error');
-    console.error('FileReader feil:', reader.error);
-  };
-  
-  // Les filen som tekst
-  reader.readAsText(file);
+
+  // Check if we should trigger explosion
+  if (viewer.getIsDefaultCloud()) {
+    console.log('🎆 Default cloud detected! Starting explosion before loading new file...');
+    stats.showDashboardMessage('🎆 Exploding logo...', 'info');
+
+    // Trigger explosion, and load new file when animation is finished
+    viewer.animateExplosion(() => {
+      console.log('Explosion finished, loading new file...');
+      processNewFile();
+    });
+  } else {
+    // Not default cloud, load file directly
+    processNewFile();
+  }
 }
 
 // Event listener for file input
@@ -493,14 +525,14 @@ body.addEventListener('drop', (e) => {
     const file = files[0];
 
     // Check file type
-    const validExtensions = ['.txt', '.xyz', '.pcd', '.ply'];
+    const validExtensions = ['.txt', '.xyz', '.csv', '.pcd', '.ply'];
     const fileName = file.name.toLowerCase();
     const isValid = validExtensions.some(ext => fileName.endsWith(ext));
 
     if (isValid) {
       loadFile(file);
     } else {
-      stats.showDashboardMessage('Invalid file type. Supported formats: .txt, .xyz, .pcd, .ply', 'error');
+      stats.showDashboardMessage('Invalid file type. Supported formats: .txt, .xyz, .csv, .pcd, .ply', 'error');
     }
   }
 });

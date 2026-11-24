@@ -128,8 +128,11 @@ export class PointCloudViewer {
 
     // Opprett BufferGeometry
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    // BufferAttribute bruker Float32Array direkte (Float32BufferAttribute ville kopiert den).
+    // Arrayene eies dermed av geometrien; statistikk og Z-invertering leser/endrer dem der.
+    const toFloat32 = (a) => (a instanceof Float32Array ? a : new Float32Array(a));
+    geometry.setAttribute('position', new THREE.BufferAttribute(toFloat32(positions), 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(toFloat32(colors), 3));
 
     // Opprett materiale for punktene
     const material = new THREE.PointsMaterial({
@@ -630,9 +633,21 @@ export class PointCloudViewer {
     boundingBox.getSize(size);
     const maxDim = Math.max(size.x, size.y, size.z);
 
+    // Statistikk gjelder bare datapunktene: for default-skyen kun terrenget
+    // (de første heightColorCount punktene), ikke logoen. Ellers hele skyen.
+    const total = positions.length / 3;
+    const statsCount = this.heightColorCount === null ? total : Math.min(this.heightColorCount, total);
+    const statsPositions = statsCount === total ? positions : positions.subarray(0, statsCount * 3);
+
+    let statsBox = boundingBox;
+    if (statsPositions !== positions) {
+      statsBox = new THREE.Box3();
+      statsBox.setFromBufferAttribute(new THREE.BufferAttribute(statsPositions, 3));
+    }
+
     // Beregn originale bounds (for dashboard)
-    const originalMinZ = boundingBox.min.z + this.coordinateOffset.z;
-    const originalMaxZ = boundingBox.max.z + this.coordinateOffset.z;
+    const originalMinZ = statsBox.min.z + this.coordinateOffset.z;
+    const originalMaxZ = statsBox.max.z + this.coordinateOffset.z;
 
     console.log('Z-akse invertert!');
     console.log('Sentrerte bounds:');
@@ -666,10 +681,12 @@ export class PointCloudViewer {
     console.log('Kamera snudd opp-ned og aksekors oppdatert');
 
     return {
-      boundingBox,
+      boundingBox,    // Hele skyen (kamera, grid, seleksjonsboks)
       center,
       size,
-      positions,
+      positions,      // Hele skyen
+      statsPositions, // Datapunkter for statistikk (uten logo for default-skyen)
+      statsBox,       // Sentrerte bounds for statsPositions
       originalMinZ,
       originalMaxZ
     };
