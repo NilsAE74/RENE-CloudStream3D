@@ -613,7 +613,7 @@ async function handleGenerateReport() {
     stats.showLoadingSpinner('Generating PDF report...');
     stats.showDashboardMessage('⏳ Generating PDF report...', 'info');
     
-    // Use positions from stored statistics (original coordinates)
+    // Use positions from stored statistics (centered coordinates + zOffset)
     const positions = currentStats.positions || null;
     
     const reportData = {
@@ -627,7 +627,8 @@ async function handleGenerateReport() {
       areaX: currentStats.areaX,
       areaY: currentStats.areaY,
       resolution: currentStats.resolution,
-      positions: positions  // Add positions for histogram
+      positions: positions,  // Centered positions for histogram
+      zOffset: currentStats.zOffset || 0
     };
     
     await report.generatePDFReport(

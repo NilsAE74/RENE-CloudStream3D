@@ -24,8 +24,13 @@ export function initDashboard() {
 
 /**
  * Oppdaterer dashboard med punktsky-statistikk
+ * @param {number} pointCount - Antall punkter
+ * @param {Object} bounds - Originale bounds (minZ/maxZ i originale koordinater)
+ * @param {Float32Array} positions - SENTRERTE posisjoner (scene-koordinater)
+ * @param {string} fileName - Filnavn
+ * @param {number} zOffset - Z-offset som gjør sentrert Z om til original Z
  */
-export function updateDashboard(pointCount, bounds, positions, fileName = '') {
+export function updateDashboard(pointCount, bounds, positions, fileName = '', zOffset = 0) {
   if (!dashboardElement) return;
   
   // Lagre filnavn hvis det er gitt
@@ -36,7 +41,7 @@ export function updateDashboard(pointCount, bounds, positions, fileName = '') {
   const { minZ, maxZ } = bounds;
   
   // Calculate histogram
-  const histogram = calculateZHistogram(positions, minZ, maxZ, 10);
+  const histogram = calculateZHistogram(positions, minZ, maxZ, 10, zOffset);
 
   // Calculate point resolution (average distance in flat areas)
   const resolution = calculatePointResolution(positions);
@@ -310,14 +315,14 @@ function colorToCSS(color) {
 /**
  * Calculates histogram for Z-values
  */
-function calculateZHistogram(positions, minZ, maxZ, numBins) {
+function calculateZHistogram(positions, minZ, maxZ, numBins, zOffset = 0) {
   const bins = new Array(numBins).fill(0);
   const range = maxZ - minZ;
   const binSize = range / numBins;
 
   // Count points in each bin
   for (let i = 0; i < positions.length; i += 3) {
-    const z = positions[i + 2]; // Z is the third value
+    const z = positions[i + 2] + zOffset; // Original Z (centered Z + offset)
 
     // Calculate which bin this point belongs to
     let binIndex = Math.floor((z - minZ) / binSize);

@@ -162,23 +162,6 @@ async function loadDefaultCloud() {
     console.log('✂️ Profile tool ready for default point cloud');
     console.log(`   Coordinate offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
     
-    // Update dashboard with statistics (TERRAIN ONLY, not logo)
-    const resolution = stats.updateDashboard(terrainData.count, terrainData.bounds, terrainData.positions, 'Default Terrain');
-
-    // Update legend with Z-values (TERRAIN ONLY, not logo)
-    ui.updateLegend(terrainData.bounds.minZ, terrainData.bounds.maxZ);
-
-    // Save statistics for report (TERRAIN ONLY, including positions for histogram)
-    ui.updateStats({
-      pointCount: terrainData.count,
-      minZ: terrainData.bounds.minZ,
-      maxZ: terrainData.bounds.maxZ,
-      areaX: terrainData.bounds.maxX - terrainData.bounds.minX,
-      areaY: terrainData.bounds.maxY - terrainData.bounds.minY,
-      resolution: resolution,
-      positions: terrainData.positions  // Store original positions for PDF histogram
-    });
-    
     // Create point cloud and add to scene
     // useHeightColor = true activates vertex colors (uses colors from both terrain gradient and logo pixels)
     const pointCloud = viewer.addPointCloud(
@@ -188,6 +171,28 @@ async function loadDefaultCloud() {
       true, // Use vertex colors: terrain gets gradient, logo gets its actual colors
       ui.settings.pointColor
     );
+
+    // Statistics use the centered positions in the geometry (TERRAIN ONLY, not logo).
+    // Terrain points come first in the combined array.
+    const terrainPositions = pointCloud.geometry.attributes.position.array.subarray(0, terrainData.count * 3);
+
+    // Update dashboard with statistics (TERRAIN ONLY, not logo)
+    const resolution = stats.updateDashboard(terrainData.count, terrainData.bounds, terrainPositions, 'Default Terrain', offset.z);
+
+    // Update legend with Z-values (TERRAIN ONLY, not logo)
+    ui.updateLegend(terrainData.bounds.minZ, terrainData.bounds.maxZ);
+
+    // Save statistics for report (TERRAIN ONLY, centered positions + zOffset for histogram)
+    ui.updateStats({
+      pointCount: terrainData.count,
+      minZ: terrainData.bounds.minZ,
+      maxZ: terrainData.bounds.maxZ,
+      areaX: terrainData.bounds.maxX - terrainData.bounds.minX,
+      areaY: terrainData.bounds.maxY - terrainData.bounds.minY,
+      resolution: resolution,
+      positions: terrainPositions,
+      zOffset: offset.z
+    });
     
     // Calculate bounding box and center camera
     const geometry = pointCloud.geometry;
@@ -312,23 +317,6 @@ function loadFile(file) {
       console.log('✂️ Profile tool updated for new point cloud');
       console.log(`   Coordinate offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
       
-      // Update dashboard with statistics (using ORIGINAL positions for histogram)
-      const resolution = stats.updateDashboard(count, bounds, positions, file.name);
-
-      // Update legend with Z-values
-      ui.updateLegend(bounds.minZ, bounds.maxZ);
-
-      // Save statistics for report (including original positions for histogram)
-      ui.updateStats({
-        pointCount: count,
-        minZ: bounds.minZ,
-        maxZ: bounds.maxZ,
-        areaX: bounds.maxX - bounds.minX,
-        areaY: bounds.maxY - bounds.minY,
-        resolution: resolution,
-        positions: positions  // Store original positions for PDF histogram
-      });
-
       // Create point cloud and add to scene (using CENTERED positions for rendering)
       const pointCloud = viewer.addPointCloud(
         centeredPositions,
@@ -337,6 +325,27 @@ function loadFile(file) {
         ui.settings.useHeightColor,
         ui.settings.pointColor
       );
+
+      // Statistics use the centered positions stored in the geometry (no extra copy)
+      const renderedPositions = pointCloud.geometry.attributes.position.array;
+
+      // Update dashboard with statistics
+      const resolution = stats.updateDashboard(count, bounds, renderedPositions, file.name, offset.z);
+
+      // Update legend with Z-values
+      ui.updateLegend(bounds.minZ, bounds.maxZ);
+
+      // Save statistics for report (centered positions + zOffset for histogram)
+      ui.updateStats({
+        pointCount: count,
+        minZ: bounds.minZ,
+        maxZ: bounds.maxZ,
+        areaX: bounds.maxX - bounds.minX,
+        areaY: bounds.maxY - bounds.minY,
+        resolution: resolution,
+        positions: renderedPositions,
+        zOffset: offset.z
+      });
 
       // Calculate bounding box and center camera
       const geometry = pointCloud.geometry;

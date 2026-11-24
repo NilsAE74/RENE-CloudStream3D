@@ -209,7 +209,7 @@ async function createMapPage(pdf, reportData) {
     yPos = drawSectionHeader(pdf, 'Z-Height Distribution', yPos);
     
     try {
-      const histogramDataUrl = createHistogramImage(reportData.positions, reportData.minZ, reportData.maxZ);
+      const histogramDataUrl = createHistogramImage(reportData.positions, reportData.minZ, reportData.maxZ, reportData.zOffset || 0);
       
       const histWidth = CONTENT_WIDTH;
       const histHeight = 60;
@@ -467,7 +467,7 @@ function createLegend(minZ, maxZ) {
 /**
  * Creates histogram image for Z-height distribution with light background
  */
-function createHistogramImage(positions, minZ, maxZ) {
+function createHistogramImage(positions, minZ, maxZ, zOffset = 0) {
   const canvas = document.createElement('canvas');
   canvas.width = 1400;
   canvas.height = 500;
@@ -485,7 +485,7 @@ function createHistogramImage(positions, minZ, maxZ) {
   
   // Count points in each bin
   for (let i = 0; i < positions.length; i += 3) {
-    const z = positions[i + 2];
+    const z = positions[i + 2] + zOffset; // Original Z (centered Z + offset)
     let binIndex = Math.floor((z - minZ) / binSize);
     if (binIndex >= numBins) binIndex = numBins - 1;
     if (binIndex < 0) binIndex = 0;
