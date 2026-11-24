@@ -1,12 +1,10 @@
-# 3D Punktsky Visualisering
+# RENE CloudStream3D
 
 [![Deploy to GitHub Pages](https://github.com/NilsAE74/RENE-CloudStream3D/actions/workflows/deploy.yml/badge.svg)](https://github.com/NilsAE74/RENE-CloudStream3D/actions/workflows/deploy.yml)
 
 En interaktiv 3D-visualiseringsapplikasjon for punktskyer bygget med Three.js og Vite.
 
 ## 🚀 Live Demo
-
-**⚠️ DEPLOYMENT FAILING? → See [QUICK_FIX.md](QUICK_FIX.md) for 2-minute setup guide!**
 
 Applikasjonen er deployet og tilgjengelig på:
 **https://nilsae74.github.io/RENE-CloudStream3D/**
@@ -70,71 +68,13 @@ Applikasjonen er deployet og tilgjengelig på:
 
 ## 📦 Deployment
 
-Prosjektet er konfigurert for automatisk deployment til GitHub Pages.
+Hver push til `main` bygger og deployer automatisk til GitHub Pages via `.github/workflows/deploy.yml`. Workflowen kan også startes manuelt: **Actions** → **Deploy to GitHub Pages** → **Run workflow**.
 
-### ⚠️ VIKTIG: Første gang oppsett
+**Første gang:** Gå til [Settings → Pages](https://github.com/NilsAE74/RENE-CloudStream3D/settings/pages) og sett **Source** til `GitHub Actions`. Ingen andre innstillinger trengs; workflowen ber selv om tilgangene den trenger.
 
-**Hvis deployment feiler med 404-feil, må du først aktivere GitHub Pages!**
-
-📖 **Se [SETUP_GITHUB_PAGES.md](SETUP_GITHUB_PAGES.md) for detaljerte instruksjoner.**
-
-Kort oppsummering:
-1. Gå til [Settings → Pages](https://github.com/NilsAE74/RENE-CloudStream3D/settings/pages)
-2. Sett **Source** til `GitHub Actions`
-3. Sett **Workflow permissions** til "Read and write"
-4. Hvis repositoryet er privat, kreves GitHub Pro eller gjør det offentlig
-
-### Verifiser Deployment-konfigurasjon
-
-Før du deployer, kan du kjøre verifikasjonsscriptet:
-
-```bash
-./verify-deployment.sh
-```
-
-Dette scriptet sjekker at alt er korrekt konfigurert for deployment.
-
-### Automatisk Deployment
-
-Når GitHub Pages er aktivert, vil hver push til `main`-branchen automatisk:
-
-1. Bygge applikasjonen
-2. Deploye til GitHub Pages
-3. Gjøre den tilgjengelig på `https://nilsae74.github.io/RENE-CloudStream3D/`
-
-### Manuell Deployment
-
-Du kan også trigge en deployment manuelt:
-
-1. Gå til **Actions**-fanen i GitHub-repositoryet
-2. Velg **Deploy to GitHub Pages** workflow
-3. Klikk på **Run workflow**
-4. Velg `main`-branchen og klikk **Run workflow**
-
-### Deployment-konfigurasjon
-
-Deployment-konfigurasjonen finnes i `.github/workflows/deploy.yml`:
-
-```yaml
-name: Deploy to GitHub Pages
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-```
-
-Vite-konfigurasjonen i `vite.config.js` er satt opp med riktig base path:
-
-```javascript
-export default defineConfig({
-  base: '/RENE-CloudStream3D/',
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-  }
-})
-```
+**Viktig:**
+- `base` i `vite.config.js` må være `'/<repo-navn>/'` (nå `'/RENE-CloudStream3D/'`). Feil verdi gir blank side, fordi JS/CSS ikke blir funnet.
+- GitHub Pages for private repoer krever GitHub Pro, Team eller Enterprise.
 
 ## 📂 Prosjektstruktur
 
@@ -205,16 +145,8 @@ npm run build
 
 ### Deployment feiler
 
-**404 Error - "Failed to create deployment":**
-- **Root cause:** GitHub Pages er ikke aktivert
-- **Solution:** Følg instruksjonene i [SETUP_GITHUB_PAGES.md](SETUP_GITHUB_PAGES.md)
-
-**Andre deployment-problemer:**
-1. Sjekk at GitHub Pages er aktivert i repository-innstillingene
-2. Verifiser at workflow-filen `.github/workflows/deploy.yml` eksisterer
-3. Sjekk **Actions**-fanen for detaljerte feilmeldinger
-4. Sørg for at `base`-stien i `vite.config.js` matcher repository-navnet
-5. Se [DEPLOYMENT.md](DEPLOYMENT.md) for fullstendig feilsøkingsguide
+- **404 «Failed to create deployment»:** GitHub Pages er ikke aktivert. Se *Første gang* under Deployment.
+- Andre feil: sjekk loggen i **Actions**-fanen.
 
 ### Svart skjerm i produksjon
 
