@@ -82,3 +82,11 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 - `prompt.txt` inneholder historiske utviklingsprompter, ikke kode.
 - `.txt` er ikke lenger ignorert i `.gitignore`. Ikke commit store punktsky-filer (`.txt`/`.xyz`) til repoet.
 - `index.html` lenker `/style.css` og `/public/CloudStream3D-logo.png` med absolutte stier; sjekk at de fungerer med `base`-stien i produksjon ved endringer.
+
+## Åpne punkter (GitHub-issues)
+
+- #5 Filer over ca. 512 MB (lese filen i biter)
+- #6 Fjerne ekstra kopier av punktene ved innlasting (minne)
+- #7 Komma-/semikolonseparerte filer
+- #8 PLY-filer med flater (face-linjer leses som punkter), binær PLY/PCD
+- #9 Lisenstekst i README
