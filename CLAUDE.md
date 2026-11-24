@@ -44,14 +44,16 @@ Kommunikasjon mellom moduler skjer via direkte imports og delte, muterbare setti
 ## Viktige konvensjoner
 
 ### Koordinater og offset (kritisk)
-- Input er typisk UTM (f.eks. X ≈ 500.000, Y ≈ 6.000.000). For WebGL float32-presisjon **sentreres** alle punkter rundt origo (`parser.centerPositions`) før rendering.
+- Input er typisk UTM (f.eks. X ≈ 500.000, Y ≈ 6.000.000). Float32 har bare ~7 gjeldende siffer: absolutte UTM-verdier i `Float32Array` avrundes til 0,5 m (Y) / 3 cm (X). **Lagre aldri absolutte UTM-koordinater i `Float32Array`.**
+- `parser.parseXYZFile` lagrer posisjoner relativt til første punkt (`origin`, double). `parser.centerPositions(positions, bounds, origin)` flytter dem så til senter; `offset` (double) er senter i absolutte koordinater. Bounds er alltid absolutte (double).
 - Offset må settes i **alle** konsumenter ved hver innlasting: `selection`, `viewer`, `measurementTool`, `profileTool` (se `main.js`). Ny modul som viser/eksporterer koordinater må også få offset.
 - Scene-koordinater = sentrerte. Alt som vises til bruker, eksporteres eller skrives i rapport skal være **originale** koordinater (sentrert + offset).
 - Z er opp (`camera.up = (0,0,1)`), som i GIS/oppmåling. Ikke bytt til Three.js sin Y-opp-konvensjon.
 - `invertZAxis()` inverterer både punkt-Z og `coordinateOffset.z`. Statistikk/rapport må ta hensyn til invertert tilstand.
 
 ### Statistikk
-- Dashboard, legende og rapport-statistikk bruker **originale** posisjoner. For default-skyen brukes kun terrengdata, ikke logo-punktene.
+- Dashboard-histogram, oppløsning og rapport-histogram bruker de **sentrerte** posisjonene i geometrien (`pointCloud.geometry.attributes.position.array`, ingen ekstra kopi) pluss `zOffset` for å få original Z. Min/maks-verdier vises fra de absolutte bounds. For default-skyen brukes kun terrengdelen (`subarray`), ikke logo-punktene.
+- Eksport av valgte punkter skrives med 3 desimaler (mm).
 
 ### Filformater
 - Akseptert: `.xyz`, `.txt`, `.pcd`, `.ply`. Merk: parseren er reelt bare en ASCII XYZ-parser (regex som finner tre tall etter hverandre). ASCII PCD/PLY fungerer delvis; binære PCD/PLY støttes **ikke**. Ekstra kolonner (intensitet, RGB) ignoreres; farge beregnes fra Z (HSL blå→rød).
